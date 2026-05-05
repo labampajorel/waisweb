@@ -543,20 +543,19 @@ var GAS_CODE = [
   "  var sh = getSheet();",
   "  var lastRow = sh.getLastRow();",
   "  var lastCol = sh.getLastColumn();",
-  "  if (lastRow <= 1) return { rows: [], total: 0 };",
+  "  if (lastRow <= 1) return { headers: [], rows: [], total: 0 };",
   "  var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h){ return String(h).trim(); });",
-  "  // Only return core columns — skip cell_* to keep payload small",
   "  var coreIdx = [];",
   "  headers.forEach(function(h, i){ if (h.indexOf('cell_') !== 0) coreIdx.push(i); });",
   "  var coreHeaders = coreIdx.map(function(i){ return headers[i]; });",
   "  var total = lastRow - 1;",
   "  var data = sh.getRange(2, 1, total, lastCol).getValues();",
   "  var rows = data.map(function(r, i) {",
-  "    var o = { _row: i + 2 };",
-  "    coreIdx.forEach(function(ci, j){ o[coreHeaders[j]] = r[ci] === '' ? '' : String(r[ci]); });",
-  "    return o;",
+  "    var arr = [i + 2];",
+  "    coreIdx.forEach(function(ci){ arr.push(r[ci] === '' ? '' : String(r[ci])); });",
+  "    return arr;",
   "  });",
-  "  return { rows: rows, total: total };",
+  "  return { headers: ['_row'].concat(coreHeaders), rows: rows, total: total };",
   "}",
   "function getCells(p) {",
   "  var rn = parseInt(p._row || '0');",
@@ -607,7 +606,7 @@ var IS_ADMIN = false;
 var USER_ROLE = '';
 var AUTH_USER = '', AUTH_HASH = '';
 var ALL = [], filtered = [];
-var curPage = 1, PER = 25;
+var curPage = 1, PER = 10;
 var sortCol = 'site_id', sortDir = 1;
 var techF = 'all', statusF = 'all', searchQ = '';
 var editRow = null, detailIdx = -1;
