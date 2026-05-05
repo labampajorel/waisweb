@@ -172,6 +172,16 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .kmz-opacity-row{display:flex;align-items:center;gap:8px;padding-top:8px;margin-top:6px;border-top:1px solid #f0f0f0}
 .kmz-opacity-slider{flex:1;accent-color:#23ada7;cursor:pointer}
 .kmz-overlay{image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;image-rendering:pixelated}
+/* ── Equipment Modal ── */
+.equip-table{width:100%;border-collapse:collapse;font-size:12px;min-width:860px}
+.equip-table thead th{padding:9px 12px;text-align:left;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #eee;background:#fafafa;white-space:nowrap}
+.equip-table tbody td{padding:8px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle;white-space:nowrap}
+.equip-table tbody tr:last-child td{border-bottom:none}
+.equip-table tbody tr:hover{background:#f9fffe}
+.eqs-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.eqs-expired{background:#FEECEC;color:#C62828}
+.eqs-warning{background:#FFF3E0;color:#BF360C}
+.eqs-ok{background:#EAF3DE;color:#3B6D11}
 .user-name{font-size:13px;font-weight:600;color:#1a1a2e}
 .user-meta{font-size:12px;color:#aaa;margin-left:6px}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transition:opacity .3s;z-index:9999;pointer-events:none;white-space:nowrap}
@@ -376,12 +386,31 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="modal-foot">
       <button class="btn-cancel" onclick="closeDetail()">Close</button>
       <button class="btn-sec" id="det-cell-btn" onclick="openCellModal()">&#128225; Cell Details</button>
+      <button class="btn-sec" id="det-equip-btn" onclick="openEquipModal()">&#128230; Equipment</button>
       <button class="btn-save" id="det-edit-btn" style="display:none" onclick="editFromDetail()">Edit Site</button>
     </div>
   </div>
 </div>
 
 <div id="toast"></div>
+
+<!-- Equipment Inventory Modal -->
+<div class="modal-bg" id="modal-equip">
+  <div class="modal modal-wide" style="width:980px">
+    <div class="modal-hdr">
+      <div>
+        <h3 id="equip-title">Equipment Inventory</h3>
+        <div id="equip-sub" style="font-size:12px;color:#888;margin-top:2px"></div>
+      </div>
+      <button class="modal-x" onclick="closeEquipModal()">&#215;</button>
+    </div>
+    <div id="equip-tabs-row" class="cell-tabs"></div>
+    <div id="equip-panels"></div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeEquipModal()">Close</button>
+    </div>
+  </div>
+</div>
 
 <!-- User Management Modal -->
 <div class="modal-bg" id="modal-users">
@@ -472,7 +501,8 @@ var GAS_CODE = [
   "    if (p.action === 'login')      return login(p);",
   "    if (p.action === 'createUser') return createUser(p);",
   "    if (p.action === 'deleteUser') return deleteUser(p);",
-  "    if (p.action === 'listUsers')  return listUsers(p);",
+  "    if (p.action === 'listUsers')    return listUsers(p);",
+  "    if (p.action === 'getEquipment') return getEquipment(p);",
   "    return { error: 'Unknown action: ' + (p.action || 'none') };",
   "  } catch(e) { return { error: e.message }; }",
   "}",
@@ -634,6 +664,45 @@ var GAS_CODE = [
   "  if (rn < 2) return { error: 'Invalid row' };",
   "  getSheet().deleteRow(rn);",
   "  return { ok: true };",
+  "}",
+  "var EQUIP_COLS = ['site_id','sector','application','description','bom_code','ne_type','vendor','tech','band','xtxr','output_power','qty','ga','eom','eos','status'];",
+  "function getEquipSheet() {",
+  "  var ss = SpreadsheetApp.getActiveSpreadsheet();",
+  "  var sh = ss.getSheetByName('Equipment');",
+  "  if (!sh) {",
+  "    sh = ss.insertSheet('Equipment');",
+  "    sh.appendRow(EQUIP_COLS);",
+  "    sh.setFrozenRows(1);",
+  "    sh.getRange(1,1,1,EQUIP_COLS.length).setFontWeight('bold');",
+  "  }",
+  "  return sh;",
+  "}",
+  "function getEquipment(p) {",
+  "  p = p || {};",
+  "  var siteId = String(p.site_id || '').trim();",
+  "  if (!siteId) return { error: 'site_id required' };",
+  "  var sh = getEquipSheet();",
+  "  var lastRow = sh.getLastRow();",
+  "  if (lastRow <= 1) return { equipment: [], sectors: [] };",
+  "  var lastCol = sh.getLastColumn();",
+  "  var headers = sh.getRange(1,1,1,lastCol).getValues()[0].map(function(h){ return String(h).trim(); });",
+  "  var data = sh.getRange(2,1,lastRow-1,lastCol).getValues();",
+  "  var siteIdx = headers.indexOf('site_id');",
+  "  var sectorSet = {};",
+  "  var equipment = [];",
+  "  data.forEach(function(row, i) {",
+  "    if (String(row[siteIdx]).trim() !== siteId) return;",
+  "    var obj = { _row: i + 2 };",
+  "    headers.forEach(function(h, j){",
+  "      var v = row[j];",
+  "      if (v instanceof Date) { obj[h] = Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd'); }",
+  "      else { obj[h] = v === '' ? '' : String(v); }",
+  "    });",
+  "    equipment.push(obj);",
+  "    if (obj.sector) sectorSet[obj.sector] = true;",
+  "  });",
+  "  var sectors = Object.keys(sectorSet).sort();",
+  "  return { equipment: equipment, sectors: sectors };",
   "}"
 ].join("\n");
 
@@ -650,7 +719,8 @@ var curPage = 1, PER = 10;
 var sortCol = 'site_id', sortDir = 1;
 var techF = 'all', statusF = 'all', searchQ = '';
 var editRow = null, detailIdx = -1;
-var cellCache = {}; // keyed by _row, stores fetched cell data
+var cellCache = {};  // keyed by _row, stores fetched cell data
+var equipCache = {}; // keyed by site_id, stores fetched equipment data
 var _detailMap = null;
 var _tileLayer = null;
 var _kmzLayers = {};
@@ -707,6 +777,7 @@ document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('keydown', function(e) {
     if (e.key !== 'Escape') return;
     if (document.getElementById('modal-cell').classList.contains('open'))    { closeCellModal();  return; }
+    if (document.getElementById('modal-equip').classList.contains('open'))   { closeEquipModal(); return; }
     if (document.getElementById('modal-add').classList.contains('open'))     { closeModal();      return; }
     if (document.getElementById('modal-users').classList.contains('open'))   { closeUserMgmt();   return; }
     if (document.getElementById('modal-detail').classList.contains('open'))  { closeDetail();     return; }
@@ -779,7 +850,7 @@ async function doLogin() {
 function doLogout() {
   if (!confirm('Log out?')) return;
   sessionStorage.removeItem('tsdb_session');
-  IS_ADMIN = false; USER_ROLE = ''; AUTH_USER = ''; AUTH_HASH = ''; ALL = []; cellCache = {};
+  IS_ADMIN = false; USER_ROLE = ''; AUTH_USER = ''; AUTH_HASH = ''; ALL = []; cellCache = {}; equipCache = {};
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('login-pw').value = '';
@@ -1771,6 +1842,109 @@ async function confirmDeleteUser(username) {
     showToast('User "' + username + '" removed.');
     loadUsers();
   } catch(e) { showToast('Error: ' + e.message, true); }
+}
+
+// ─── Equipment Inventory ──────────────────────────────────────────────────────
+
+function _eosStatusBadge(eosStr) {
+  if (!eosStr) return '<span style="color:#ccc">—</span>';
+  var eos = new Date(eosStr.replace(/\//g,'-'));
+  var daysLeft = (eos - new Date()) / 86400000;
+  var lbl = escHtml(eosStr);
+  if (daysLeft < 0)   return '<span class="eqs-badge eqs-expired">'+ lbl +'</span>';
+  if (daysLeft < 365) return '<span class="eqs-badge eqs-warning">'+ lbl +'</span>';
+  return '<span class="eqs-badge eqs-ok">'+ lbl +'</span>';
+}
+
+function openEquipModal() {
+  var s = ALL[detailIdx]; if (!s) return;
+  document.getElementById('equip-title').textContent = s.site_id + ' — Equipment Inventory';
+  document.getElementById('equip-sub').textContent = s.site_name + (s.site_type ? '  ·  ' + s.site_type : '');
+  document.getElementById('equip-tabs-row').innerHTML = '';
+  document.getElementById('equip-panels').innerHTML = '<div class="no-cells">&#9203; Loading equipment data...</div>';
+
+  var _equipBg = document.getElementById('modal-equip');
+  _equipBg.classList.add('open');
+  _equipBg.querySelector('.modal').scrollTop = 0;
+
+  var cacheKey = String(s.site_id);
+  if (equipCache[cacheKey]) {
+    _renderEquipPanels(equipCache[cacheKey].equipment, equipCache[cacheKey].sectors);
+  } else {
+    gsGet(GS_URL, { action: 'getEquipment', site_id: s.site_id })
+      .then(function(res) {
+        if (res.error) throw new Error(res.error);
+        equipCache[cacheKey] = { equipment: res.equipment || [], sectors: res.sectors || [] };
+        _renderEquipPanels(equipCache[cacheKey].equipment, equipCache[cacheKey].sectors);
+      })
+      .catch(function(e) {
+        document.getElementById('equip-tabs-row').innerHTML = '';
+        document.getElementById('equip-panels').innerHTML = '<div class="no-cells">Error loading equipment: ' + escHtml(e.message) + '</div>';
+      });
+  }
+}
+
+function _renderEquipPanels(equipment, sectors) {
+  if (!equipment.length) {
+    document.getElementById('equip-tabs-row').innerHTML = '';
+    document.getElementById('equip-panels').innerHTML = '<div class="no-cells">No equipment data available for this site.</div>';
+    return;
+  }
+  var EQUIP_BAND_ORDER = ['700M','850M','900M','1800M','2100M','2300M','2600M','3500M'];
+  document.getElementById('equip-tabs-row').innerHTML = sectors.map(function(sec, i) {
+    return '<button class="cell-tab' + (i===0?' active':'') + '" onclick="switchEquipTab(\'' + escHtml(sec) + '\')">Sector ' + (i+1) + '</button>';
+  }).join('');
+  document.getElementById('equip-panels').innerHTML = sectors.map(function(sec, i) {
+    var items = equipment.filter(function(eq){ return eq.sector === sec; });
+    items.sort(function(a, b) {
+      var ai = EQUIP_BAND_ORDER.indexOf(a.band), bi = EQUIP_BAND_ORDER.indexOf(b.band);
+      if (ai === -1) ai = 999;
+      if (bi === -1) bi = 999;
+      return ai !== bi ? ai - bi : (a.description || '').localeCompare(b.description || '');
+    });
+    var rows = items.map(function(eq) {
+      return '<tr>' +
+        '<td>' + escHtml(eq.description) + '</td>' +
+        '<td style="font-family:monospace">' + escHtml(eq.bom_code) + '</td>' +
+        '<td>' + escHtml(eq.ne_type) + '</td>' +
+        '<td>' + escHtml(eq.vendor) + '</td>' +
+        '<td><span class="badge bnd">' + escHtml(eq.tech) + '</span></td>' +
+        '<td><span class="badge bnd">' + escHtml(eq.band) + '</span></td>' +
+        '<td>' + escHtml(eq.xtxr) + '</td>' +
+        '<td>' + escHtml(eq.output_power) + '</td>' +
+        '<td style="text-align:center">' + escHtml(eq.qty) + '</td>' +
+        '<td>' + escHtml(eq.ga) + '</td>' +
+        '<td>' + escHtml(eq.eom) + '</td>' +
+        '<td>' + _eosStatusBadge(eq.eos) + '</td>' +
+        '<td style="font-weight:600;color:#2E7D32">' + escHtml(eq.status) + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<div class="cell-panel' + (i===0?' active':'') + '" id="equip-panel-' + escHtml(sec) + '">' +
+      '<div class="tbl-wrap" style="border-radius:8px;margin-bottom:4px">' +
+        '<table class="equip-table">' +
+          '<thead><tr>' +
+            '<th>Description</th><th>BOM Code</th><th>NE Type</th><th>Vendor</th>' +
+            '<th>Tech</th><th>Band</th><th>TxR</th><th>Output Power</th>' +
+            '<th>Qty</th><th>GA</th><th>EOM</th><th>EOS</th><th>Status</th>' +
+          '</tr></thead>' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function switchEquipTab(sector) {
+  document.querySelectorAll('#equip-tabs-row .cell-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('#equip-panels .cell-panel').forEach(function(p){ p.classList.remove('active'); });
+  var tab = document.querySelector('#equip-tabs-row .cell-tab[onclick="switchEquipTab(\'' + sector + '\')"]');
+  var panel = document.getElementById('equip-panel-' + sector);
+  if (tab) tab.classList.add('active');
+  if (panel) panel.classList.add('active');
+}
+
+function closeEquipModal() {
+  document.getElementById('modal-equip').classList.remove('open');
 }
 
 var toastTimer;
