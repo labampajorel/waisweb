@@ -160,16 +160,15 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .kmz-panel{margin-top:10px;padding:10px 12px;background:#f9f9f9;border-radius:8px;border:1px solid #e8e8e8}
 .kmz-panel-hdr{margin-bottom:8px}
 .kmz-add-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
-.kmz-sel{flex:1;min-width:140px;height:30px;font-size:12px;border:1px solid #d0d0d0;border-radius:5px;padding:0 8px;background:#fff;color:#1a1a2e;outline:none}
-.kmz-btn{height:30px;padding:0 12px;font-size:12px;border:1px solid #d0d0d0;border-radius:5px;background:#fff;color:#555;cursor:pointer;white-space:nowrap}
-.kmz-btn:hover{background:#f0f0f0}
+.kmz-sel{flex:1;min-width:0;height:22px;font-size:11px;border:1px solid #e0e0e0;border-radius:4px;padding:0 5px;background:#fff;color:#555;outline:none}
+.kmz-btn{height:22px;padding:0 8px;font-size:11px;border:1px solid #e0e0e0;border-radius:4px;background:#fff;color:#555;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.kmz-btn:hover{background:#f5f5f5}
 .kmz-file-lbl{height:30px;padding:0 12px;font-size:12px;border:1px solid #23ada7;border-radius:5px;background:#e0f5f4;color:#23ada7;cursor:pointer;display:flex;align-items:center;white-space:nowrap;user-select:none}
 .kmz-file-lbl input{display:none}
-.kmz-layer-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f0f0f0}
-.kmz-layer-row:last-child{border-bottom:none}
-.kmz-layer-name{font-size:12px;flex:1;color:#1a1a2e;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.kmz-rm-btn{width:22px;height:22px;border:none;background:none;color:#bbb;cursor:pointer;font-size:15px;line-height:1;border-radius:3px;padding:0;display:flex;align-items:center;justify-content:center}
-.kmz-rm-btn:hover{background:#fee;color:#c00}
+.kmz-layer-row{display:flex;align-items:center;gap:5px;padding:2px 0}
+.kmz-layer-name{font-size:11px;flex:1;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kmz-rm-btn{width:16px;height:16px;border:none;background:none;color:#ccc;cursor:pointer;font-size:13px;line-height:1;border-radius:2px;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.kmz-rm-btn:hover{color:#c00}
 .kmz-opacity-row{display:flex;align-items:center;gap:8px;padding-top:8px;margin-top:6px;border-top:1px solid #f0f0f0}
 .kmz-opacity-slider{flex:1;accent-color:#23ada7;cursor:pointer}
 .kmz-overlay{image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;image-rendering:pixelated}
@@ -1049,25 +1048,7 @@ function showDetail(idx) {
         '</div>' +
       '</div>' +
       '<div id="' + mapId + '" style="width:100%;height:260px;border-radius:8px;border:1px solid #e0e0e0;z-index:1;transition:height .3s ease"></div>' +
-      '<div style="font-size:11px;color:#aaa;margin-top:5px">Coordinates: ' + lat + ', ' + lon +
-      ' &nbsp;&middot;&nbsp; <a href="https://www.openstreetmap.org/?mlat=' + lat + '&mlon=' + lon + '&zoom=16" target="_blank" style="color:#23ada7">Open in OpenStreetMap &#8599;</a></div>' +
-      '<div class="kmz-panel">' +
-        '<div class="kmz-panel-hdr"><span class="det-k" style="margin-bottom:0">&#128506; KMZ Layers</span></div>' +
-        '<div class="kmz-add-row">' +
-          '<select id="kmz-sel-' + mapId + '" class="kmz-sel">' +
-            (KMZ_LAYERS.length
-              ? '<option value="">— Select a layer —</option>' + KMZ_LAYERS.map(function(l){ return '<option value="' + escHtml(l.file) + '">' + escHtml(l.name) + '</option>'; }).join('')
-              : '<option value="" disabled>No layers — add entries to KMZ_LAYERS config</option>') +
-          '</select>' +
-          '<button class="kmz-btn" onclick="addKmzFromSelect(\'' + mapId + '\')"' + (!KMZ_LAYERS.length ? ' disabled style="opacity:.45;cursor:default"' : '') + '>+ Load</button>' +
-        '</div>' +
-        '<div id="kmz-list-' + mapId + '"></div>' +
-        '<div id="kmz-oprow-' + mapId + '" class="kmz-opacity-row" style="display:none">' +
-          '<span style="font-size:11px;color:#888;white-space:nowrap">Opacity</span>' +
-          '<input type="range" id="kmz-opacity-' + mapId + '" class="kmz-opacity-slider" min="0" max="100" value="100" oninput="updateKmzOpacity(\'' + mapId + '\', this.value)">' +
-          '<span id="kmz-oplbl-' + mapId + '" style="font-size:11px;color:#555;min-width:30px;text-align:right">100%</span>' +
-        '</div>' +
-      '</div>' +
+      '<div style="font-size:11px;color:#aaa;margin-top:5px">Coordinates: ' + lat + ', ' + lon + '</div>' +
       '</div>';
 
     setTimeout(function() {
@@ -1080,6 +1061,27 @@ function showDetail(idx) {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
         subdomains: 'abcd', maxZoom: 19
       }).addTo(m);
+
+      // KMZ control — top-right overlay inside the map
+      var _kmzCtrl = L.control({ position: 'topright' });
+      _kmzCtrl.onAdd = function() {
+        var div = L.DomUtil.create('div', '');
+        div.style.cssText = 'background:rgba(255,255,255,.93);border-radius:5px;box-shadow:0 1px 5px rgba(0,0,0,.18);padding:5px 7px;font-family:\'Segoe UI\',sans-serif';
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.disableScrollPropagation(div);
+        var opts = KMZ_LAYERS.length
+          ? '<option value="">— select —</option>' + KMZ_LAYERS.map(function(l){ return '<option value="' + escHtml(l.file) + '">' + escHtml(l.name) + '</option>'; }).join('')
+          : '<option value="" disabled>No layers</option>';
+        div.innerHTML =
+          '<div style="display:flex;align-items:center;gap:3px">' +
+            '<span style="font-size:9px;color:#bbb;font-weight:700;text-transform:uppercase;letter-spacing:.05em;flex-shrink:0">KMZ</span>' +
+            '<select id="kmz-sel-' + mapId + '" style="width:110px;height:20px;font-size:10px;border:1px solid #ddd;border-radius:3px;padding:0 3px;background:#fff;color:#555;outline:none">' + opts + '</select>' +
+            '<button onclick="addKmzFromSelect(\'' + mapId + '\')" style="height:20px;width:22px;font-size:14px;line-height:1;border:1px solid #ddd;border-radius:3px;background:#fff;color:#777;cursor:pointer;flex-shrink:0;padding:0"' + (!KMZ_LAYERS.length ? ' disabled' : '') + '>+</button>' +
+          '</div>' +
+          '<div id="kmz-list-' + mapId + '" style="margin-top:2px;max-width:150px"></div>';
+        return div;
+      };
+      _kmzCtrl.addTo(m);
 
       // Add all other sites as small plain dots
       ALL.forEach(function(other) {
@@ -1155,7 +1157,7 @@ function setTileLayer(mapId, type) {
   if (_tileLayer) { _detailMap.removeLayer(_tileLayer); }
   if (type === 'satellite') {
     _tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '&copy; Esri &mdash; Esri, DigitalGlobe, GeoEye, USDA FSA, USGS, AEX, Getmapping, Aerogrid, IGN, IGP, swisstopo, GIS Community',
+      attribution: '',
       maxZoom: 19
     }).addTo(_detailMap);
   } else {
@@ -1271,8 +1273,7 @@ async function _parseAndAddKmz(mapId, name, source) {
       }).filter(function(ll) { return !isNaN(ll[0]) && !isNaN(ll[1]); });
     }
 
-    var opSlider = document.getElementById('kmz-opacity-' + mapId);
-    var sliderOp = opSlider ? (parseInt(opSlider.value) / 100) : 1.0;
+    var sliderOp = 0.4;
 
     var group = L.featureGroup();
     var featureCount = 0;
@@ -1332,9 +1333,7 @@ async function _parseAndAddKmz(mapId, name, source) {
 
 function _addKmzLayerRow(mapId, lid, name) {
   var listEl = document.getElementById('kmz-list-' + mapId);
-  var opRow  = document.getElementById('kmz-oprow-' + mapId);
   if (!listEl) return;
-  if (opRow) opRow.style.display = 'flex';
   var row = document.createElement('div');
   row.className = 'kmz-layer-row';
   row.id = 'kmz-row-' + lid;
@@ -1359,24 +1358,8 @@ function removeKmzLayer(mapId, lid) {
   delete _kmzLayers[lid];
   var row = document.getElementById('kmz-row-' + lid);
   if (row) row.remove();
-  var listEl = document.getElementById('kmz-list-' + mapId);
-  var opRow  = document.getElementById('kmz-oprow-' + mapId);
-  if (opRow && listEl && !listEl.children.length) opRow.style.display = 'none';
 }
 
-function updateKmzOpacity(mapId, val) {
-  var lbl = document.getElementById('kmz-oplbl-' + mapId);
-  if (lbl) lbl.textContent = val + '%';
-  var op = val / 100;
-  Object.keys(_kmzLayers).forEach(function(lid) {
-    if (!_kmzLayers[lid].visible || !_kmzLayers[lid].layer) return;
-    if (_kmzLayers[lid].type === 'vector') {
-      _kmzLayers[lid].layer.setStyle({ opacity: op, fillOpacity: op * 0.55 });
-    } else {
-      _kmzLayers[lid].layer.setOpacity(op);
-    }
-  });
-}
 
 // â”€â”€â”€ Cell Details Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var BAND_META = {
