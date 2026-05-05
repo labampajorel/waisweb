@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Telecom Site &amp; Cell Database</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2e;min-height:100vh}
+
+/* ── Setup ── */
+#setup-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem}
+.setup-card{background:#fff;border-radius:16px;padding:2.5rem;max-width:580px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.logo-row{display:flex;align-items:center;gap:10px;margin-bottom:1.5rem}
+.logo-icon{width:40px;height:40px;background:#185FA5;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.logo-text{font-size:18px;font-weight:700;color:#185FA5}
+.setup-card h2{font-size:22px;font-weight:700;margin-bottom:.4rem}
+.setup-card>p{font-size:13px;color:#666;line-height:1.6;margin-bottom:1.5rem}
+.steps{margin-bottom:1.5rem}
+.step{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.step-n{width:24px;height:24px;border-radius:50%;background:#E6F1FB;color:#185FA5;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.step-t{font-size:13px;color:#444;line-height:1.6}
+.step-t a{color:#185FA5}
+details{border:1px solid #e0e0e0;border-radius:8px;padding:10px 14px;margin-bottom:1.25rem}
+details summary{font-size:13px;font-weight:600;color:#185FA5;cursor:pointer}
+#script-box{width:100%;height:180px;font-size:11px;font-family:monospace;border:1px solid #d0d0d0;border-radius:6px;padding:8px;resize:vertical;color:#333;line-height:1.5;margin-top:8px}
+.copy-btn{margin-top:6px;font-size:12px;padding:5px 14px;border-radius:6px;border:1px solid #d0d0d0;cursor:pointer;background:#f5f5f5}
+.mode-row{display:flex;gap:8px;margin-bottom:1rem}
+.mode-btn{flex:1;padding:10px;border-radius:8px;border:1.5px solid #d0d0d0;background:#f9f9f9;font-size:13px;font-weight:500;cursor:pointer;color:#555;transition:all .15s}
+.mode-btn.active{border-color:#185FA5;background:#E6F1FB;color:#185FA5}
+.field-group{display:flex;flex-direction:column;gap:5px;margin-bottom:1rem}
+.field-group label{font-size:11px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.04em}
+.field-group input{height:42px;border:1.5px solid #d0d0d0;border-radius:8px;padding:0 14px;font-size:14px;outline:none;transition:border-color .15s;width:100%}
+.field-group input:focus{border-color:#185FA5}
+.field-group small{font-size:12px;color:#999}
+.setup-err{background:#FAECE7;color:#993C1D;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:1rem;display:none;line-height:1.5}
+.connect-btn{width:100%;height:44px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
+.connect-btn:hover{background:#0C447C}
+.connect-btn:disabled{opacity:.7;cursor:default}
+
+/* ── App ── */
+#app{display:none;max-width:1300px;margin:0 auto;padding:1.5rem}
+.app-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:12px}
+.hdr-left{display:flex;align-items:center;gap:12px}
+.app-logo{width:36px;height:36px;background:#185FA5;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.app-title{font-size:20px;font-weight:700;color:#185FA5}
+.app-sub{font-size:12px;color:#888;margin-top:1px}
+.hdr-right{display:flex;gap:8px;align-items:center}
+.sync{font-size:12px;color:#888;display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:#639922;flex-shrink:0}
+.dot.spin{background:#BA7517;animation:pulse 1s infinite}
+.dot.err{background:#E24B4A}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Stats ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:1.25rem}
+.stat{background:#fff;border-radius:10px;padding:12px 16px;border:1px solid #e8e8e8}
+.stat-lbl{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.05em}
+.stat-val{font-size:22px;font-weight:700;margin-top:2px;color:#1a1a2e}
+.stat-val.v-onair{color:#3B6D11}
+.stat-val.v-inactive{color:#888}
+.stat-val.v-2g{color:#3B6D11}
+.stat-val.v-3g{color:#185FA5}
+.stat-val.v-4g{color:#3C3489}
+.stat-val.v-5g{color:#993C1D}
+
+/* ── Toolbar ── */
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
+.search-box{flex:1;min-width:220px;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #d8d8d8;border-radius:8px;padding:0 14px;height:38px}
+.search-box input{border:none;outline:none;background:transparent;color:#1a1a2e;font-size:14px;width:100%}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.fb{font-size:12px;padding:5px 13px;border-radius:999px;border:1px solid #d0d0d0;background:#fff;color:#555;cursor:pointer;font-weight:500;transition:all .15s;white-space:nowrap}
+.fb.on{background:#185FA5;border-color:#185FA5;color:#fff}
+.btn-add{height:38px;padding:0 18px;font-size:13px;font-weight:600;border:none;border-radius:8px;background:#185FA5;color:#fff;cursor:pointer;white-space:nowrap}
+.btn-add:hover{background:#0C447C}
+.btn-sec{height:38px;padding:0 14px;font-size:13px;font-weight:500;border:1px solid #d0d0d0;border-radius:8px;background:#fff;color:#555;cursor:pointer;white-space:nowrap}
+.btn-sec:hover{background:#f5f5f5}
+
+/* ── Table ── */
+.tbl-wrap{background:#fff;border-radius:12px;border:1px solid #e8e8e8;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:960px}
+thead th{padding:11px 14px;text-align:left;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #eee;background:#fafafa;white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:#1a1a2e}
+thead th.sorted{color:#185FA5}
+tbody tr{border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#f5f9ff}
+tbody td{padding:10px 14px;vertical-align:middle}
+.sid{font-weight:600;color:#185FA5;font-size:12px;font-family:monospace}
+.s-onair{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#2E7D32;white-space:nowrap}
+.s-onair::before{content:'';width:6px;height:6px;border-radius:50%;background:#43A047;display:inline-block;flex-shrink:0}
+.s-inactive{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#C62828;white-space:nowrap}
+.s-inactive::before{content:'';width:6px;height:6px;border-radius:50%;background:#E53935;display:inline-block;flex-shrink:0}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:999px;font-weight:600;margin:1px 2px 1px 0;white-space:nowrap}
+.b2g{background:#EAF3DE;color:#3B6D11}
+.b3g{background:#E6F1FB;color:#185FA5}
+.b4g{background:#EEEDFE;color:#3C3489}
+.b5g{background:#FAECE7;color:#993C1D}
+.bnd{background:#f0f0f0;color:#555;border:1px solid #e0e0e0}
+.msg-empty,.msg-loading{text-align:center;padding:3rem;color:#aaa;font-size:14px}
+
+/* ── Pagination ── */
+.pager{display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-size:13px;color:#888;flex-wrap:wrap;gap:8px}
+.pager-btns{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.pg{height:30px;min-width:30px;padding:0 8px;border:1px solid #d0d0d0;border-radius:6px;background:#fff;color:#1a1a2e;font-size:12px;cursor:pointer;transition:all .12s}
+.pg:hover:not(.cur):not(.pg-ellipsis){background:#f0f0f0}
+.pg.cur{background:#185FA5;border-color:#185FA5;color:#fff;font-weight:600}
+.pg-ellipsis{border:none;background:transparent;cursor:default;color:#aaa;min-width:20px;padding:0 2px}
+.pg-nav{font-weight:500;color:#555}
+.readonly-bar{background:#FAEEDA;border:1px solid #FAC775;border-radius:8px;padding:10px 14px;font-size:13px;color:#633806;margin-bottom:1rem;display:none}
+
+/* ── Modal ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:1rem}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:14px;width:700px;max-width:100%;max-height:90vh;overflow-y:auto;padding:1.75rem;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
+.modal-hdr h3{font-size:18px;font-weight:700}
+.modal-x{font-size:22px;cursor:pointer;color:#aaa;border:none;background:none;line-height:1}
+.modal-x:hover{color:#333}
+.sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #f0f0f0}
+.fg-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.25rem}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg.full{grid-column:1/-1}
+.fg label{font-size:11px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.04em}
+.fg input,.fg select{height:36px;font-size:13px;border-radius:7px;border:1.5px solid #d8d8d8;background:#fff;color:#1a1a2e;padding:0 12px;outline:none;transition:border-color .15s;width:100%}
+.fg input:focus,.fg select:focus{border-color:#185FA5}
+.ck-group{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1.25rem}
+.ck{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;color:#1a1a2e;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:6px;padding:5px 10px;transition:all .12s;user-select:none}
+.ck input{width:14px;height:14px;cursor:pointer;accent-color:#185FA5;flex-shrink:0}
+.ck.on{background:#E6F1FB;border-color:#185FA5;color:#185FA5}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:1rem;padding-top:1rem;border-top:1px solid #f0f0f0}
+.btn-cancel{height:36px;padding:0 16px;font-size:13px;border:1px solid #d0d0d0;border-radius:7px;background:#fff;color:#555;cursor:pointer}
+.btn-del{color:#A32D2D!important;border-color:#F09595!important}
+.btn-save{height:36px;padding:0 22px;font-size:13px;font-weight:600;border:none;border-radius:7px;background:#185FA5;color:#fff;cursor:pointer}
+.btn-save:hover{background:#0C447C}
+.btn-save:disabled{opacity:.6;cursor:default}
+
+/* ── Detail ── */
+.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+.det-f{padding:9px 0;border-bottom:1px solid #f5f5f5}
+.det-f.full{grid-column:1/-1}
+.det-k{font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+.det-v{font-size:13px;color:#1a1a2e;font-weight:500;margin-top:4px}
+
+/* ── Cell Details Modal ── */
+.modal-wide{width:860px}
+.cell-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem}
+.cell-tab{padding:6px 14px;border-radius:6px;border:1.5px solid #e0e0e0;background:#f9f9f9;font-size:12px;font-weight:600;cursor:pointer;color:#666;transition:all .15s;white-space:nowrap}
+.cell-tab.active{border-color:#185FA5;background:#E6F1FB;color:#185FA5}
+.cell-panel{display:none}.cell-panel.active{display:block}
+.cell-section{margin-bottom:1.25rem}
+.cell-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.cell-field{display:flex;flex-direction:column;gap:4px}
+.cell-field label{font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.05em}
+.cell-field .cv{font-size:13px;color:#1a1a2e;font-weight:500;padding:7px 10px;background:#f9f9f9;border-radius:6px;border:1px solid #f0f0f0;min-height:32px}
+.cell-field .cv.empty{color:#ccc;font-style:italic}
+.cell-field input.ce{height:34px;font-size:13px;border-radius:6px;border:1.5px solid #d8d8d8;background:#fff;color:#1a1a2e;padding:0 10px;outline:none;transition:border-color .15s;width:100%}
+.cell-field input.ce:focus{border-color:#185FA5}
+.band-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #f0f0f0}
+.band-hdr-badge{font-size:14px;font-weight:700;padding:4px 12px;border-radius:6px}
+.no-cells{text-align:center;padding:2.5rem;color:#bbb;font-size:13px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transition:opacity .3s;z-index:9999;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+#toast.terr{background:#A32D2D}
+
+@media(max-width:600px){
+  .fg-grid,.det-grid{grid-template-columns:1fr}
+  .fg.full,.det-f.full{grid-column:1}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ SETUP ═══════════════════════════════════════════════════════════════ -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <div class="logo-row">
+      <div class="logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6l11 6 11-6"/><path d="M1 12l11 6 11-6"/></svg>
+      </div>
+      <span class="logo-text">Telecom Site DB</span>
+    </div>
+    <h2>Connect to Google Sheets</h2>
+    <p>Your data lives in a Google Sheet you own — free and permanent. Follow the steps below once to get started.</p>
+    <div class="steps">
+      <div class="step"><div class="step-n">1</div><div class="step-t">Go to <a href="https://sheets.new" target="_blank">sheets.new</a> to create a new Google Sheet.</div></div>
+      <div class="step"><div class="step-n">2</div><div class="step-t">Click <strong>Extensions → Apps Script</strong>, delete any existing code, paste the script below, then press <strong>Ctrl+S</strong> to save.</div></div>
+      <div class="step"><div class="step-n">3</div><div class="step-t">Click <strong>Deploy → New Deployment</strong>. Set Type: <strong>Web App</strong>, Execute as: <strong>Me</strong>, Who has access: <strong>Anyone</strong>. Click Deploy and authorize when prompted.</div></div>
+      <div class="step"><div class="step-n">4</div><div class="step-t">Copy the <strong>Web App URL</strong> shown after deploying and paste it below.</div></div>
+    </div>
+    <details>
+      <summary>&#128203; Show Apps Script code to paste</summary>
+      <textarea id="script-box" readonly></textarea>
+      <button class="copy-btn" onclick="copyScript()">Copy to clipboard</button>
+    </details>
+    <div class="mode-row">
+      <button class="mode-btn active" id="mode-admin" onclick="setMode('admin')">&#128295; Admin (add / edit / delete)</button>
+      <button class="mode-btn" id="mode-view" onclick="setMode('view')">&#128065; View only</button>
+    </div>
+    <div class="field-group">
+      <label>Apps Script Web App URL</label>
+      <input type="url" id="setup-url" placeholder="https://script.google.com/macros/s/.../exec"/>
+      <small>Paste the Web App URL from your Apps Script deployment.</small>
+    </div>
+    <div class="setup-err" id="setup-err"></div>
+    <button class="connect-btn" id="connect-btn" onclick="connectSheet()">Connect &amp; Open Database</button>
+  </div>
+</div>
+
+<!-- ═══ APP ══════════════════════════════════════════════════════════════════ -->
+<div id="app">
+  <div class="app-hdr">
+    <div class="hdr-left">
+      <div class="app-logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6l11 6 11-6"/><path d="M1 12l11 6 11-6"/></svg>
+      </div>
+      <div>
+        <div class="app-title">Telecom Site &amp; Cell Database</div>
+        <div class="app-sub">Connected to Google Sheets</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="sync"><div class="dot" id="sync-dot"></div><span id="sync-lbl">Synced</span></div>
+      <button class="btn-sec" onclick="loadSites()">&#8635; Refresh</button>
+      <button class="btn-sec" onclick="disconnect()">Disconnect</button>
+    </div>
+  </div>
+
+  <div class="readonly-bar" id="readonly-bar">&#128065; View-only mode — reconnect as Admin to add, edit, or delete sites.</div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-lbl">Total Sites</div><div class="stat-val" id="st-total">—</div></div>
+    <div class="stat"><div class="stat-lbl">2G Sites</div><div class="stat-val v-2g" id="st-2g">—</div></div>
+    <div class="stat"><div class="stat-lbl">3G Sites</div><div class="stat-val v-3g" id="st-3g">—</div></div>
+    <div class="stat"><div class="stat-lbl">4G Sites</div><div class="stat-val v-4g" id="st-4g">—</div></div>
+    <div class="stat"><div class="stat-lbl">5G Sites</div><div class="stat-val v-5g" id="st-5g">—</div></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-box">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5.5" stroke="#aaa" stroke-width="1.3"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.3" stroke-linecap="round"/></svg>
+      <input id="search-input" placeholder="Search by Site ID, name, city, address, region..."/>
+    </div>
+    <div class="filters" id="tech-filters">
+      <button class="fb on" data-v="all">All Tech</button>
+      <button class="fb" data-v="2G">2G</button>
+      <button class="fb" data-v="3G">3G</button>
+      <button class="fb" data-v="4G">4G</button>
+      <button class="fb" data-v="5G">5G</button>
+    </div>
+
+    <button class="btn-add" id="add-btn" style="display:none" onclick="openModal(null)">+ Add Site</button>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th data-col="site_id">Site ID</th>
+        <th data-col="site_name">Site Name</th>
+        <th data-col="site_status" style="min-width:90px">Status</th>
+        <th data-col="site_type" style="min-width:100px;white-space:nowrap">Site Type</th>
+        <th data-col="address">Address</th>
+        <th data-col="city">City / Municipality</th>
+        <th data-col="province">Province</th>
+        <th data-col="region">Region</th>
+        <th data-col="area">Area</th>
+        <th>Technology</th>
+        <th>Bands</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="msg-loading" id="msg-loading">Loading sites...</div>
+    <div class="msg-empty" id="msg-empty" style="display:none">No sites found.</div>
+  </div>
+  <div class="pager" id="pager"></div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-bg" id="modal-add">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h3 id="modal-title">Add New Site</h3>
+      <button class="modal-x" onclick="closeModal()">&#215;</button>
+    </div>
+    <div class="sec-title">Site Information</div>
+    <div class="fg-grid">
+      <div class="fg"><label>Site ID *</label><input id="f-site_id" placeholder="e.g. NCR-00101"/></div>
+      <div class="fg"><label>Site Name *</label><input id="f-site_name" placeholder="e.g. BGY SAN ANTONIO"/></div>
+      <div class="fg"><label>Site Status</label>
+        <select id="f-site_status"><option value="On-air">On-Air</option><option value="Inactive">Inactive</option></select>
+      </div>
+      <div class="fg"><label>Site Type</label>
+        <select id="f-site_type">
+          <option value="">— Select —</option>
+          <option value="Macro">Macro</option>
+          <option value="Micro">Micro</option>
+          <option value="IBS">IBS</option>
+          <option value="Macro+IBS">Macro+IBS</option>
+          <option value="Micro+IBS">Micro+IBS</option>
+          <option value="MEOW">MEOW</option>
+        </select>
+      </div>
+      <div class="fg"><label>Site Tag</label><input id="f-site_tag" placeholder="e.g. GBT, ROOFTOP"/></div>
+      <div class="fg full"><label>Address</label><input id="f-address" placeholder="Street address"/></div>
+      <div class="fg"><label>Barangay</label><input id="f-brgy" placeholder="Barangay"/></div>
+      <div class="fg"><label>City / Municipality</label><input id="f-city" placeholder="City or municipality"/></div>
+      <div class="fg"><label>Province</label><input id="f-province" placeholder="Province"/></div>
+      <div class="fg"><label>Region</label><input id="f-region" placeholder="e.g. NCR, Region III"/></div>
+      <div class="fg"><label>Area</label><input id="f-area" placeholder="e.g. North Luzon"/></div>
+      <div class="fg"><label>Latitude</label><input id="f-latitude" type="number" step="any" placeholder="e.g. 14.5995"/></div>
+      <div class="fg"><label>Longitude</label><input id="f-longitude" type="number" step="any" placeholder="e.g. 121.0244"/></div>
+    </div>
+    <div class="sec-title">Technology On-Air</div>
+    <div class="ck-group" id="tech-checks">
+      <label class="ck"><input type="checkbox" value="2G" onchange="toggleCk(this)"/> 2G</label>
+      <label class="ck"><input type="checkbox" value="3G" onchange="toggleCk(this)"/> 3G</label>
+      <label class="ck"><input type="checkbox" value="4G" onchange="toggleCk(this)"/> 4G</label>
+      <label class="ck"><input type="checkbox" value="5G" onchange="toggleCk(this)"/> 5G</label>
+    </div>
+    <div class="sec-title">Bands On-Air</div>
+    <div class="ck-group" id="band-checks">
+      <label class="ck"><input type="checkbox" value="G900"   onchange="toggleCk(this)"/> G900</label>
+      <label class="ck"><input type="checkbox" value="G1800"  onchange="toggleCk(this)"/> G1800</label>
+      <label class="ck"><input type="checkbox" value="U900"   onchange="toggleCk(this)"/> U900</label>
+      <label class="ck"><input type="checkbox" value="U2100"  onchange="toggleCk(this)"/> U2100</label>
+      <label class="ck"><input type="checkbox" value="L700"   onchange="toggleCk(this)"/> L700</label>
+      <label class="ck"><input type="checkbox" value="L850"   onchange="toggleCk(this)"/> L850</label>
+      <label class="ck"><input type="checkbox" value="L1800"  onchange="toggleCk(this)"/> L1800</label>
+      <label class="ck"><input type="checkbox" value="L2100"  onchange="toggleCk(this)"/> L2100</label>
+      <label class="ck"><input type="checkbox" value="L2300"  onchange="toggleCk(this)"/> L2300</label>
+      <label class="ck"><input type="checkbox" value="L2600"  onchange="toggleCk(this)"/> L2600</label>
+      <label class="ck"><input type="checkbox" value="NR700"  onchange="toggleCk(this)"/> NR700</label>
+      <label class="ck"><input type="checkbox" value="NR2100" onchange="toggleCk(this)"/> NR2100</label>
+      <label class="ck"><input type="checkbox" value="NR2600" onchange="toggleCk(this)"/> NR2600</label>
+      <label class="ck"><input type="checkbox" value="NR3500" onchange="toggleCk(this)"/> NR3500</label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel btn-del" id="del-btn" style="display:none" onclick="deleteSite()">Delete Site</button>
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" id="save-btn" onclick="saveSite()">Save Site</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-bg" id="modal-detail">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h3 id="det-title">Site Details</h3>
+      <button class="modal-x" onclick="closeDetail()">&#215;</button>
+    </div>
+    <div id="det-body"></div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeDetail()">Close</button>
+      <button class="btn-sec" id="det-cell-btn" onclick="openCellModal()">📡 Cell Details</button>
+      <button class="btn-save" id="det-edit-btn" style="display:none" onclick="editFromDetail()">Edit Site</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Cell Details Modal -->
+<div class="modal-bg" id="modal-cell">
+  <div class="modal modal-wide">
+    <div class="modal-hdr">
+      <div>
+        <h3 id="cell-title">Cell Details</h3>
+        <div id="cell-sub" style="font-size:12px;color:#888;margin-top:2px"></div>
+      </div>
+      <button class="modal-x" onclick="closeCellModal()">&#215;</button>
+    </div>
+    <div id="cell-tabs-row" class="cell-tabs"></div>
+    <div id="cell-panels"></div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeCellModal()">Close</button>
+      <button class="btn-sec" id="cell-edit-btn" style="display:none" onclick="toggleCellEdit(true)">✏️ Edit Cell Details</button>
+      <button class="btn-cancel" id="cell-cancel-btn" style="display:none" onclick="toggleCellEdit(false)">Cancel</button>
+      <button class="btn-save" id="cell-save-btn" style="display:none" onclick="saveCellDetails()">Save Cell Details</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Apps Script — stored as plain string (no backtick nesting issues) ──────
+var GAS_CODE = [
+  "const COLS = ['site_id','site_name','site_status','site_type','address','site_tag','brgy',",
+  "  'city','province','region','area','latitude','longitude',",
+  "  'tech_2g','tech_3g','tech_4g','tech_5g',",
+  "  'band_g900','band_g1800','band_u900','band_u2100',",
+  "  'band_l700','band_l850','band_l1800','band_l2100','band_l2300','band_l2600',",
+  "  'band_nr700','band_nr2100','band_nr2600','band_nr3500',",
+  "  'cell_g900_config','cell_g900_bts_name','cell_g900_cell_name','cell_g900_bsc','cell_g900_bcch','cell_g900_tch','cell_g900_lac','cell_g900_m_tilt','cell_g900_ret','cell_g900_azimuth','cell_g900_height','cell_g900_notes',",
+  "  'cell_g1800_config','cell_g1800_bts_name','cell_g1800_cell_name','cell_g1800_bsc','cell_g1800_bcch','cell_g1800_tch','cell_g1800_lac','cell_g1800_m_tilt','cell_g1800_ret','cell_g1800_azimuth','cell_g1800_height','cell_g1800_notes',",
+  "  'cell_u900_config','cell_u900_nodeb_name','cell_u900_cell_name','cell_u900_rnc','cell_u900_uarfcn','cell_u900_lac','cell_u900_psc','cell_u900_m_tilt','cell_u900_ret','cell_u900_azimuth','cell_u900_height','cell_u900_notes',",
+  "  'cell_u2100_config','cell_u2100_nodeb_name','cell_u2100_cell_name','cell_u2100_rnc','cell_u2100_uarfcn','cell_u2100_lac','cell_u2100_psc','cell_u2100_m_tilt','cell_u2100_ret','cell_u2100_azimuth','cell_u2100_height','cell_u2100_notes',",
+  "  'cell_l700_config','cell_l700_enodeb_name','cell_l700_cell_name','cell_l700_earfcn','cell_l700_pci','cell_l700_ci','cell_l700_tac','cell_l700_bandwidth','cell_l700_m_tilt','cell_l700_ret','cell_l700_azimuth','cell_l700_height','cell_l700_notes',",
+  "  'cell_l850_config','cell_l850_enodeb_name','cell_l850_cell_name','cell_l850_earfcn','cell_l850_pci','cell_l850_ci','cell_l850_tac','cell_l850_bandwidth','cell_l850_m_tilt','cell_l850_ret','cell_l850_azimuth','cell_l850_height','cell_l850_notes',",
+  "  'cell_l1800_config','cell_l1800_enodeb_name','cell_l1800_cell_name','cell_l1800_earfcn','cell_l1800_pci','cell_l1800_ci','cell_l1800_tac','cell_l1800_bandwidth','cell_l1800_m_tilt','cell_l1800_ret','cell_l1800_azimuth','cell_l1800_height','cell_l1800_notes',",
+  "  'cell_l2100_config','cell_l2100_enodeb_name','cell_l2100_cell_name','cell_l2100_earfcn','cell_l2100_pci','cell_l2100_ci','cell_l2100_tac','cell_l2100_bandwidth','cell_l2100_m_tilt','cell_l2100_ret','cell_l2100_azimuth','cell_l2100_height','cell_l2100_notes',",
+  "  'cell_l2300_config','cell_l2300_enodeb_name','cell_l2300_cell_name','cell_l2300_earfcn','cell_l2300_pci','cell_l2300_ci','cell_l2300_tac','cell_l2300_bandwidth','cell_l2300_m_tilt','cell_l2300_ret','cell_l2300_azimuth','cell_l2300_height','cell_l2300_notes',",
+  "  'cell_l2600_config','cell_l2600_enodeb_name','cell_l2600_cell_name','cell_l2600_earfcn','cell_l2600_pci','cell_l2600_ci','cell_l2600_tac','cell_l2600_bandwidth','cell_l2600_m_tilt','cell_l2600_ret','cell_l2600_azimuth','cell_l2600_height','cell_l2600_notes',",
+  "  'cell_nr700_config','cell_nr700_gnodeb_name','cell_nr700_cell_name','cell_nr700_arfcn','cell_nr700_pci','cell_nr700_ci','cell_nr700_tac','cell_nr700_bandwidth','cell_nr700_m_tilt','cell_nr700_ret','cell_nr700_azimuth','cell_nr700_height','cell_nr700_notes',",
+  "  'cell_nr2100_config','cell_nr2100_gnodeb_name','cell_nr2100_cell_name','cell_nr2100_arfcn','cell_nr2100_pci','cell_nr2100_ci','cell_nr2100_tac','cell_nr2100_bandwidth','cell_nr2100_m_tilt','cell_nr2100_ret','cell_nr2100_azimuth','cell_nr2100_height','cell_nr2100_notes',",
+  "  'cell_nr2600_config','cell_nr2600_gnodeb_name','cell_nr2600_cell_name','cell_nr2600_arfcn','cell_nr2600_pci','cell_nr2600_ci','cell_nr2600_tac','cell_nr2600_bandwidth','cell_nr2600_m_tilt','cell_nr2600_ret','cell_nr2600_azimuth','cell_nr2600_height','cell_nr2600_notes',",
+  "  'cell_nr3500_config','cell_nr3500_gnodeb_name','cell_nr3500_cell_name','cell_nr3500_arfcn','cell_nr3500_pci','cell_nr3500_ci','cell_nr3500_tac','cell_nr3500_bandwidth','cell_nr3500_m_tilt','cell_nr3500_ret','cell_nr3500_azimuth','cell_nr3500_height','cell_nr3500_notes'];",
+  "",
+  "function doGet(e)  { return out(run(e.parameter || {})); }",
+  "function doPost(e) { return out(run(e.parameter || {})); }",
+  "function out(d) {",
+  "  return ContentService.createTextOutput(JSON.stringify(d))",
+  "    .setMimeType(ContentService.MimeType.JSON);",
+  "}",
+  "function run(p) {",
+  "  try {",
+  "    if (p.action === 'get')    return getAll();",
+  "    if (p.action === 'save')   return save(p);",
+  "    if (p.action === 'delete') return del(p);",
+  "    return { error: 'Unknown action' };",
+  "  } catch(e) { return { error: e.message }; }",
+  "}",
+  "function getSheet() {",
+  "  var ss = SpreadsheetApp.getActiveSpreadsheet();",
+  "  var sh = ss.getSheetByName('Sites');",
+  "  if (!sh) {",
+  "    sh = ss.insertSheet('Sites');",
+  "    sh.appendRow(COLS);",
+  "    sh.setFrozenRows(1);",
+  "    sh.getRange(1,1,1,COLS.length).setFontWeight('bold');",
+  "  }",
+  "  return sh;",
+  "}",
+  "function getAll() {",
+  "  var sh = getSheet();",
+  "  var data = sh.getDataRange().getValues();",
+  "  if (data.length <= 1) return { rows: [], total: 0 };",
+  "  var headers = data[0].map(function(h){ return String(h); });",
+  "  var rows = data.slice(1).map(function(r, i) {",
+  "    var o = { _row: i + 2 };",
+  "    headers.forEach(function(k, j) { o[k] = r[j] === '' ? '' : String(r[j]); });",
+  "    return o;",
+  "  });",
+  "  return { rows: rows, total: rows.length };",
+  "}",
+  "function save(p) {",
+  "  var sh = getSheet();",
+  "  var row = COLS.map(function(c) { return p[c] !== undefined ? p[c] : ''; });",
+  "  var rn = parseInt(p._row || '0');",
+  "  if (rn >= 2) {",
+  "    sh.getRange(rn, 1, 1, COLS.length).setValues([row]);",
+  "    return { ok: true };",
+  "  }",
+  "  sh.appendRow(row);",
+  "  return { ok: true, row: sh.getLastRow() };",
+  "}",
+  "function del(p) {",
+  "  var rn = parseInt(p._row || '0');",
+  "  if (rn < 2) return { error: 'Invalid row' };",
+  "  getSheet().deleteRow(rn);",
+  "  return { ok: true };",
+  "}"
+].join("\n");
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+var TECHS = ['2G','3G','4G','5G'];
+var BANDS = ['G900','G1800','U900','U2100','L700','L850','L1800','L2100','L2300','L2600','NR700','NR2100','NR2600','NR3500'];
+
+// ─── State ───────────────────────────────────────────────────────────────────
+var GS_URL = '', IS_ADMIN = false;
+var ALL = [], filtered = [];
+var curPage = 1, PER = 25;
+var sortCol = 'site_id', sortDir = 1;
+var techF = 'all', statusF = 'all', searchQ = '';
+var editRow = null, detailIdx = -1;
+var selMode = 'admin';
+
+// ─── DOM ready — everything starts here ─────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+
+  // Populate script textarea
+  document.getElementById('script-box').value = GAS_CODE;
+
+  // Wire up search
+  document.getElementById('search-input').addEventListener('input', function(e) {
+    searchQ = e.target.value; applyFilters();
+  });
+
+  // Wire up tech filters
+  document.getElementById('tech-filters').addEventListener('click', function(e) {
+    var b = e.target.closest('.fb'); if (!b) return;
+    document.querySelectorAll('#tech-filters .fb').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on'); techF = b.dataset.v; applyFilters();
+  });
+
+// Wire up table sort
+  document.querySelectorAll('thead th[data-col]').forEach(function(th) {
+    th.addEventListener('click', function() {
+      if (sortCol === th.dataset.col) sortDir *= -1;
+      else { sortCol = th.dataset.col; sortDir = 1; }
+      document.querySelectorAll('thead th').forEach(function(t){ t.classList.remove('sorted'); });
+      th.classList.add('sorted');
+      applyFilters();
+    });
+  });
+
+  // Auto-reconnect from saved config
+  try {
+    var cfg = JSON.parse(localStorage.getItem('tsdb_v2') || 'null');
+    if (cfg && cfg.url) {
+      GS_URL = cfg.url;
+      IS_ADMIN = !!cfg.admin;
+      showApp();
+    }
+  } catch(e) {}
+});
+
+// ─── Setup ───────────────────────────────────────────────────────────────────
+function setMode(m) {
+  selMode = m;
+  document.getElementById('mode-admin').classList.toggle('active', m === 'admin');
+  document.getElementById('mode-view').classList.toggle('active', m === 'view');
+}
+
+function copyScript() {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(GAS_CODE).then(function(){ showToast('Copied!'); });
+  } else {
+    var ta = document.getElementById('script-box');
+    ta.select(); document.execCommand('copy'); showToast('Copied!');
+  }
+}
+
+async function connectSheet() {
+  var url = document.getElementById('setup-url').value.trim();
+  var errEl = document.getElementById('setup-err');
+  errEl.style.display = 'none';
+
+  if (!url) {
+    errEl.textContent = 'Please paste your Apps Script Web App URL above.';
+    errEl.style.display = 'block'; return;
+  }
+  if (url.indexOf('script.google.com') === -1) {
+    errEl.textContent = 'That does not look like an Apps Script URL. It should start with https://script.google.com/...';
+    errEl.style.display = 'block'; return;
+  }
+
+  var btn = document.getElementById('connect-btn');
+  btn.textContent = 'Connecting...'; btn.disabled = true;
+
+  try {
+    var res = await gsGet(url, { action: 'get' });
+    if (res.error) throw new Error(res.error);
+
+    GS_URL = url;
+    IS_ADMIN = (selMode === 'admin');
+    localStorage.setItem('tsdb_v2', JSON.stringify({ url: GS_URL, admin: IS_ADMIN }));
+    ALL = res.rows || [];
+    showApp();
+  } catch(e) {
+    errEl.innerHTML =
+      '<strong>Connection failed:</strong> ' + escHtml(e.message) + '<br>' +
+      '<small>Check that:<br>' +
+      '1. The Web App access is set to <strong>Anyone</strong><br>' +
+      '2. You clicked <strong>Authorize</strong> when deploying<br>' +
+      '3. The URL ends with <strong>/exec</strong> (not /dev)</small>';
+    errEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Connect & Open Database'; btn.disabled = false;
+  }
+}
+
+function showApp() {
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('add-btn').style.display = IS_ADMIN ? '' : 'none';
+  document.getElementById('readonly-bar').style.display = IS_ADMIN ? 'none' : 'block';
+  loadSites();
+}
+
+function disconnect() {
+  if (!confirm('Disconnect from Google Sheets?')) return;
+  localStorage.removeItem('tsdb_v2');
+  GS_URL = ''; IS_ADMIN = false; ALL = [];
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('setup-screen').style.display = 'flex';
+}
+
+// ─── Google Sheets GET request ────────────────────────────────────────────────
+function gsGet(url, params) {
+  var qs = new URLSearchParams(params).toString();
+  var fullUrl = qs ? url + '?' + qs : url;
+  return fetch(fullUrl, { redirect: 'follow' })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+}
+
+async function loadSites() {
+  syncDot('spin');
+  document.getElementById('msg-loading').style.display = 'block';
+  document.getElementById('tbody').innerHTML = '';
+  document.getElementById('msg-empty').style.display = 'none';
+  try {
+    var res = await gsGet(GS_URL, { action: 'get' });
+    if (res.error) throw new Error(res.error);
+    ALL = res.rows || [];
+    syncDot('ok');
+    updateStats();
+    applyFilters();
+  } catch(e) {
+    syncDot('err');
+    document.getElementById('msg-loading').style.display = 'none';
+    showToast('Load error: ' + e.message, true);
+  }
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('st-total').textContent   = ALL.length;
+  document.getElementById('st-2g').textContent = ALL.filter(function(s){ return isTrue(s.tech_2g); }).length;
+  document.getElementById('st-3g').textContent = ALL.filter(function(s){ return isTrue(s.tech_3g); }).length;
+  document.getElementById('st-4g').textContent = ALL.filter(function(s){ return isTrue(s.tech_4g); }).length;
+  document.getElementById('st-5g').textContent = ALL.filter(function(s){ return isTrue(s.tech_5g); }).length;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function normStr(v){ return String(v||'').trim().toLowerCase(); }
+function isTrue(v){ return v===true||v===1||normStr(v)==='true'||normStr(v)==='1'; }
+function isTech(s,t){ return isTrue(s['tech_'+t.toLowerCase()]); }
+function isBand(s,b){ return isTrue(s['band_'+b.toLowerCase()]); }
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function techBadge(t){
+  var cls = {2:'b2g',3:'b3g',4:'b4g',5:'b5g'}[t[0]]||'b4g';
+  return '<span class="badge '+cls+'">'+t+'</span>';
+}
+function bandBadge(b){ return '<span class="badge bnd">'+b+'</span>'; }
+function statusBadge(v){
+  var s = String(v||'').trim();
+  if (normStr(s)==='on-air')   return '<span class="s-onair">On-Air</span>';
+  if (normStr(s)==='inactive') return '<span class="s-inactive">Inactive</span>';
+  return '<span class="s-inactive">'+(escHtml(s)||'—')+'</span>';
+}
+
+// ─── Filter & Sort ────────────────────────────────────────────────────────────
+function applyFilters() {
+  var q = searchQ.toLowerCase();
+  filtered = ALL.filter(function(s) {
+    var mQ = !q || ['site_id','site_name','address','city','province','region','area','brgy','site_tag']
+      .some(function(k){ return normStr(s[k]).indexOf(q) !== -1; });
+    var mT = techF === 'all' || isTech(s, techF);
+    var mS = statusF === 'all' || normStr(s.site_status) === normStr(statusF);
+    return mQ && mT && mS;
+  });
+  filtered.sort(function(a,b){
+    var va = normStr(a[sortCol]), vb = normStr(b[sortCol]);
+    return sortDir * (va > vb ? 1 : va < vb ? -1 : 0);
+  });
+  curPage = 1;
+  renderTable();
+  renderPager();
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderTable() {
+  var tbody = document.getElementById('tbody');
+  var lmsg  = document.getElementById('msg-loading');
+  var emsg  = document.getElementById('msg-empty');
+  lmsg.style.display = 'none';
+
+  var start = (curPage - 1) * PER;
+  var slice = filtered.slice(start, start + PER);
+
+  if (!slice.length) { tbody.innerHTML = ''; emsg.style.display = 'block'; return; }
+  emsg.style.display = 'none';
+
+  tbody.innerHTML = slice.map(function(s) {
+    var idx = ALL.indexOf(s);
+    var techs = TECHS.filter(function(t){ return isTech(s,t); }).map(techBadge).join('');
+    var bb = BANDS.filter(function(b){ return isBand(s,b); });
+    var bands = bb.slice(0,4).map(bandBadge).join('') + (bb.length>4 ? '<span class="badge bnd">+' + (bb.length-4) + '</span>' : '');
+    return '<tr onclick="showDetail(' + idx + ')">' +
+      '<td><span class="sid">' + escHtml(s.site_id) + '</span></td>' +
+      '<td>' + escHtml(s.site_name) + '</td>' +
+      '<td>' + statusBadge(s.site_status) + '</td>' +
+      '<td>' + escHtml(s.site_type||'—') + '</td>' +
+      '<td>' + escHtml(s.address) + '</td>' +
+      '<td>' + escHtml(s.city) + '</td>' +
+      '<td>' + escHtml(s.province) + '</td>' +
+      '<td>' + escHtml(s.region) + '</td>' +
+      '<td>' + escHtml(s.area) + '</td>' +
+      '<td>' + (techs||'—') + '</td>' +
+      '<td>' + (bands||'—') + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function renderPager() {
+  var el = document.getElementById('pager');
+  var total = filtered.length;
+  var pages = Math.max(1, Math.ceil(total / PER));
+  var s = (curPage-1)*PER+1, e = Math.min(curPage*PER, total);
+
+  // Build smart page number list: always show 1, last, current-2..current+2, with ellipses
+  var pageSet = {};
+  [1, pages].forEach(function(p){ pageSet[p] = true; });
+  for (var d = -2; d <= 2; d++) {
+    var p = curPage + d;
+    if (p >= 1 && p <= pages) pageSet[p] = true;
+  }
+  var pageNums = Object.keys(pageSet).map(Number).sort(function(a,b){ return a-b; });
+
+  var btns = '';
+  // Prev button
+  btns += '<button class="pg pg-nav" onclick="goPage(' + Math.max(1, curPage-1) + ')" ' + (curPage===1?'disabled style="opacity:.4;cursor:default"':'') + '>&#8592;</button>';
+
+  var prev = 0;
+  pageNums.forEach(function(p) {
+    if (prev && p - prev > 1) btns += '<button class="pg pg-ellipsis" disabled>…</button>';
+    btns += '<button class="pg' + (p===curPage?' cur':'') + '" onclick="goPage(' + p + ')">' + p + '</button>';
+    prev = p;
+  });
+
+  // Next button
+  btns += '<button class="pg pg-nav" onclick="goPage(' + Math.min(pages, curPage+1) + ')" ' + (curPage===pages?'disabled style="opacity:.4;cursor:default"':'') + '>&#8594;</button>';
+
+  el.innerHTML =
+    '<span>Showing ' + (total?s:0) + '–' + e + ' of ' + total + ' &nbsp;|&nbsp; Page ' + curPage + ' of ' + pages + '</span>' +
+    '<div class="pager-btns">' + btns + '</div>';
+}
+function goPage(p){ curPage=p; renderTable(); renderPager(); }
+
+// ─── Detail Modal ─────────────────────────────────────────────────────────────
+function showDetail(idx) {
+  var s = ALL[idx]; if (!s) return;
+  detailIdx = idx;
+  document.getElementById('det-title').textContent = s.site_id + ' — ' + s.site_name;
+
+  var rows = [
+    ['Site ID', escHtml(s.site_id)],
+    ['Site Name', escHtml(s.site_name)],
+    ['Site Status', statusBadge(s.site_status), true],
+    ['Site Type', escHtml(s.site_type||'—')],
+    ['Site Tag', escHtml(s.site_tag||'—')],
+    ['Address', escHtml(s.address||'—')],
+    ['Barangay', escHtml(s.brgy||'—')],
+    ['City / Municipality', escHtml(s.city||'—')],
+    ['Province', escHtml(s.province||'—')],
+    ['Region', escHtml(s.region||'—')],
+    ['Area', escHtml(s.area||'—')],
+    ['Latitude', escHtml(s.latitude||'—')],
+    ['Longitude', escHtml(s.longitude||'—')],
+  ];
+
+  var techs = TECHS.filter(function(t){ return isTech(s,t); }).map(techBadge).join('') || '—';
+  var bands  = BANDS.filter(function(b){ return isBand(s,b); }).map(bandBadge).join('') || '—';
+
+  var lat = parseFloat(s.latitude), lon = parseFloat(s.longitude);
+  var mapHtml = '';
+  if (!isNaN(lat) && !isNaN(lon)) {
+    var mapId = 'map-' + Date.now();
+    mapHtml = '<div class="det-f full" style="margin-top:4px">' +
+      '<div class="det-k" style="margin-bottom:8px">📍 Map View</div>' +
+      '<div id="' + mapId + '" style="width:100%;height:260px;border-radius:8px;border:1px solid #e0e0e0;z-index:1"></div>' +
+      '<div style="font-size:11px;color:#aaa;margin-top:5px">Coordinates: ' + lat + ', ' + lon +
+      ' &nbsp;·&nbsp; <a href="https://www.openstreetmap.org/?mlat=' + lat + '&mlon=' + lon + '&zoom=16" target="_blank" style="color:#185FA5">Open in OpenStreetMap ↗</a></div>' +
+      '</div>';
+
+    setTimeout(function() {
+      if (typeof L === 'undefined') return;
+      var mapEl = document.getElementById(mapId);
+      if (!mapEl || mapEl._leaflet_id) return;
+      var m = L.map(mapId, { zoomControl: true, scrollWheelZoom: true }).setView([lat, lon], 14);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        subdomains: 'abcd', maxZoom: 19
+      }).addTo(m);
+
+      // Add all other sites as small plain dots
+      ALL.forEach(function(other) {
+        var olat = parseFloat(other.latitude), olon = parseFloat(other.longitude);
+        if (isNaN(olat) || isNaN(olon)) return;
+        if (other.site_id === s.site_id) return; // skip selected, drawn separately below
+        var dotIcon = L.divIcon({
+          className: '',
+          html: '<div style="width:8px;height:8px;border-radius:50%;background:#aaa;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transform:translate(-50%,-50%)"></div>',
+          iconSize: [0, 0],
+          iconAnchor: [0, 0]
+        });
+        L.marker([olat, olon], { icon: dotIcon, title: other.site_id }).addTo(m);
+      });
+
+      // Add selected site with labeled pin on top
+      var pinIcon = L.divIcon({
+        className: '',
+        html: '<div style="display:flex;flex-direction:column;align-items:center;transform:translateX(-50%)">' +
+              '<div style="background:#2E7D32;color:#fff;font-size:10px;font-weight:700;font-family:Segoe UI,sans-serif;padding:3px 7px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25);letter-spacing:.03em">' + escHtml(s.site_id) + '</div>' +
+              '<div style="width:2px;height:8px;background:#2E7D32;margin:0 auto"></div>' +
+              '<div style="width:10px;height:10px;border-radius:50%;background:#2E7D32;box-shadow:0 0 0 3px rgba(46,125,50,.25)"></div>' +
+              '</div>',
+        iconSize: [0, 0],
+        iconAnchor: [0, 0]
+      });
+      L.marker([lat, lon], { icon: pinIcon, zIndexOffset: 1000 }).addTo(m);
+    }, 100);
+  }
+
+  document.getElementById('det-body').innerHTML =
+    '<div class="det-grid">' +
+    rows.map(function(r){ return '<div class="det-f"><div class="det-k">' + r[0] + '</div><div class="det-v">' + r[1] + '</div></div>'; }).join('') +
+    '<div class="det-f full"><div class="det-k">Technology On-Air</div><div class="det-v">' + techs + '</div></div>' +
+    '<div class="det-f full"><div class="det-k">Bands On-Air</div><div class="det-v">' + bands + '</div></div>' +
+    mapHtml +
+    '</div>';
+
+  document.getElementById('det-edit-btn').style.display = IS_ADMIN ? '' : 'none';
+  document.getElementById('modal-detail').classList.add('open');
+}
+function closeDetail(){ document.getElementById('modal-detail').classList.remove('open'); }
+function editFromDetail(){ closeDetail(); openModal(detailIdx); }
+
+// ─── Cell Details Modal ───────────────────────────────────────────────────────
+var BAND_META = {
+  G900:  { gen:'2G', cls:'b2g', fields:[
+    {key:'config',lbl:'Config'},{key:'bts_name',lbl:'BTS Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'bsc',lbl:'BSC'},{key:'bcch',lbl:'BCCH'},{key:'tch',lbl:'TCH'},
+    {key:'lac',lbl:'LAC'},{key:'m_tilt',lbl:'M Tilt'},{key:'ret',lbl:'RET'},
+    {key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  G1800: { gen:'2G', cls:'b2g', fields:[
+    {key:'config',lbl:'Config'},{key:'bts_name',lbl:'BTS Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'bsc',lbl:'BSC'},{key:'bcch',lbl:'BCCH'},{key:'tch',lbl:'TCH'},
+    {key:'lac',lbl:'LAC'},{key:'m_tilt',lbl:'M Tilt'},{key:'ret',lbl:'RET'},
+    {key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  U900:  { gen:'3G', cls:'b3g', fields:[
+    {key:'config',lbl:'Config'},{key:'nodeb_name',lbl:'NodeB Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'rnc',lbl:'RNC'},{key:'uarfcn',lbl:'UARFCN'},{key:'lac',lbl:'LAC'},
+    {key:'psc',lbl:'PSC'},{key:'m_tilt',lbl:'M Tilt'},{key:'ret',lbl:'RET'},
+    {key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  U2100: { gen:'3G', cls:'b3g', fields:[
+    {key:'config',lbl:'Config'},{key:'nodeb_name',lbl:'NodeB Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'rnc',lbl:'RNC'},{key:'uarfcn',lbl:'UARFCN'},{key:'lac',lbl:'LAC'},
+    {key:'psc',lbl:'PSC'},{key:'m_tilt',lbl:'M Tilt'},{key:'ret',lbl:'RET'},
+    {key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  L700:  { gen:'4G', cls:'b4g', fields:[
+    {key:'config',lbl:'Config'},{key:'enodeb_name',lbl:'eNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'earfcn',lbl:'EARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
+    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  L850:  { gen:'4G', cls:'b4g', fields:[
+    {key:'config',lbl:'Config'},{key:'enodeb_name',lbl:'eNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'earfcn',lbl:'EARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
+    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  L1800: { gen:'4G', cls:'b4g', fields:[
+    {key:'config',lbl:'Config'},{key:'enodeb_name',lbl:'eNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'earfcn',lbl:'EARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
+    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  L2100: { gen:'4G', cls:'b4g', fields:[
+    {key:'config',lbl:'Config'},{key:'enodeb_name',lbl:'eNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'earfcn',lbl:'EARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
+    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  L2300: { gen:'4G', cls:'b4g', fields:[
+    {key:'config',lbl:'Config'},{key:'enodeb_name',lbl:'eNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'earfcn',lbl:'EARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
+    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  L2600: { gen:'4G', cls:'b4g', fields:[
+    {key:'config',lbl:'Config'},{key:'enodeb_name',lbl:'eNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'earfcn',lbl:'EARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
+    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  NR700:  { gen:'5G', cls:'b5g', fields:[
+    {key:'config',lbl:'Config'},{key:'gnodeb_name',lbl:'gNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'arfcn',lbl:'NR-ARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
+    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  NR2100: { gen:'5G', cls:'b5g', fields:[
+    {key:'config',lbl:'Config'},{key:'gnodeb_name',lbl:'gNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'arfcn',lbl:'NR-ARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
+    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  NR2600: { gen:'5G', cls:'b5g', fields:[
+    {key:'config',lbl:'Config'},{key:'gnodeb_name',lbl:'gNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'arfcn',lbl:'NR-ARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
+    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]},
+  NR3500: { gen:'5G', cls:'b5g', fields:[
+    {key:'config',lbl:'Config'},{key:'gnodeb_name',lbl:'gNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
+    {key:'arfcn',lbl:'NR-ARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
+    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+  ]}
+};
+
+function openCellModal() {
+  var s = ALL[detailIdx]; if (!s) return;
+  var activeBands = BANDS.filter(function(b){ return isBand(s, b); });
+
+  document.getElementById('cell-title').textContent = s.site_id + ' — Cell Details';
+  document.getElementById('cell-sub').textContent = s.site_name + (s.site_type ? '  ·  ' + s.site_type : '');
+
+  var tabsHtml = '', panelsHtml = '';
+
+  if (!activeBands.length) {
+    panelsHtml = '<div class="no-cells">No bands configured for this site.</div>';
+  } else {
+    activeBands.forEach(function(band, i) {
+      var meta = BAND_META[band];
+      var bKey = band.toLowerCase();
+      var isActive = i === 0;
+
+      tabsHtml += '<button class="cell-tab' + (isActive ? ' active' : '') + '" onclick="switchCellTab(\'' + band + '\')">' +
+        '<span class="badge ' + meta.cls + '" style="margin-right:4px">' + meta.gen + '</span>' + band +
+        '</button>';
+
+      var fieldsHtml = meta.fields.map(function(f) {
+        var colKey = 'cell_' + bKey + '_' + f.key;
+        var val = s[colKey] || '';
+        var isEmpty = !val;
+        return '<div class="cell-field">' +
+          '<label>' + f.lbl + '</label>' +
+          '<div class="cv' + (isEmpty ? ' empty' : '') + '" data-col="' + colKey + '">' + (isEmpty ? '—' : escHtml(val)) + '</div>' +
+          '<input class="ce" data-col="' + colKey + '" value="' + escHtml(val) + '" placeholder="' + f.lbl + '" style="display:none"/>' +
+          '</div>';
+      }).join('');
+
+      panelsHtml += '<div class="cell-panel' + (isActive ? ' active' : '') + '" id="cell-panel-' + band + '">' +
+        '<div class="band-hdr">' +
+          '<span class="badge ' + meta.cls + ' band-hdr-badge">' + band + '</span>' +
+          '<span style="font-size:13px;color:#888">' + meta.gen + ' Band Configuration</span>' +
+        '</div>' +
+        '<div class="cell-grid">' + fieldsHtml + '</div>' +
+        '</div>';
+    });
+  }
+
+  document.getElementById('cell-tabs-row').innerHTML = tabsHtml;
+  document.getElementById('cell-panels').innerHTML = panelsHtml;
+
+  // Show edit button only for admins and when there are bands
+  document.getElementById('cell-edit-btn').style.display = (IS_ADMIN && activeBands.length) ? '' : 'none';
+  document.getElementById('cell-cancel-btn').style.display = 'none';
+  document.getElementById('cell-save-btn').style.display = 'none';
+
+  document.getElementById('modal-cell').classList.add('open');
+}
+
+function switchCellTab(band) {
+  document.querySelectorAll('.cell-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.cell-panel').forEach(function(p){ p.classList.remove('active'); });
+  var activeTab = document.querySelector('.cell-tab[onclick="switchCellTab(\'' + band + '\')"]');
+  var activePanel = document.getElementById('cell-panel-' + band);
+  if (activeTab) activeTab.classList.add('active');
+  if (activePanel) activePanel.classList.add('active');
+}
+
+function toggleCellEdit(editing) {
+  // Toggle all .cv (view) and .ce (input) elements
+  document.querySelectorAll('#cell-panels .cv').forEach(function(el){ el.style.display = editing ? 'none' : ''; });
+  document.querySelectorAll('#cell-panels .ce').forEach(function(el){ el.style.display = editing ? '' : 'none'; });
+
+  document.getElementById('cell-edit-btn').style.display   = editing ? 'none' : '';
+  document.getElementById('cell-cancel-btn').style.display = editing ? '' : 'none';
+  document.getElementById('cell-save-btn').style.display   = editing ? '' : 'none';
+}
+
+async function saveCellDetails() {
+  var s = ALL[detailIdx]; if (!s || !s._row) return;
+
+  // Collect all input values and update the local object
+  var params = { action: 'save', _row: s._row };
+
+  // Carry over all existing site fields so the row isn't wiped
+  var siteFields = ['site_id','site_name','site_status','site_type','address','site_tag','brgy',
+    'city','province','region','area','latitude','longitude',
+    'tech_2g','tech_3g','tech_4g','tech_5g',
+    'band_g900','band_g1800','band_u900','band_u2100',
+    'band_l700','band_l850','band_l1800','band_l2100','band_l2300','band_l2600',
+    'band_nr700','band_nr2100','band_nr2600','band_nr3500'];
+  siteFields.forEach(function(k){ params[k] = s[k] || ''; });
+
+  // Collect edited cell field values from inputs
+  document.querySelectorAll('#cell-panels .ce').forEach(function(inp) {
+    var col = inp.getAttribute('data-col');
+    var val = inp.value.trim();
+    params[col] = val;
+    s[col] = val; // update local cache immediately
+  });
+
+  var btn = document.getElementById('cell-save-btn');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+  syncDot('spin');
+
+  try {
+    var res = await gsGet(GS_URL, params);
+    if (res.error) throw new Error(res.error);
+
+    // Refresh the view divs with new values
+    document.querySelectorAll('#cell-panels .cv').forEach(function(el) {
+      var col = el.getAttribute('data-col');
+      var val = s[col] || '';
+      el.textContent = val || '—';
+      el.classList.toggle('empty', !val);
+    });
+
+    toggleCellEdit(false);
+    syncDot('ok');
+    showToast('Cell details saved!');
+  } catch(e) {
+    syncDot('err');
+    showToast('Save error: ' + e.message, true);
+  } finally {
+    btn.textContent = 'Save Cell Details'; btn.disabled = false;
+  }
+}
+
+function closeCellModal() {
+  toggleCellEdit(false); // reset to view mode
+  document.getElementById('modal-cell').classList.remove('open');
+}
+
+// ─── Add/Edit Modal ───────────────────────────────────────────────────────────
+function openModal(idx) {
+  var s = (idx !== null && idx >= 0) ? ALL[idx] : null;
+  editRow = s ? s._row : null;
+  document.getElementById('modal-title').textContent = s ? 'Edit Site' : 'Add New Site';
+  document.getElementById('del-btn').style.display = (s && IS_ADMIN) ? '' : 'none';
+
+  var fields = ['site_id','site_name','address','site_tag','brgy','city','province','region','area','latitude','longitude'];
+  fields.forEach(function(k){
+    var el = document.getElementById('f-'+k);
+    if (el) el.value = s ? (s[k]||'') : '';
+  });
+  document.getElementById('f-site_status').value = s ? (s.site_status || 'On-air') : 'On-air';
+  document.getElementById('f-site_type').value = s ? (s.site_type || '') : '';
+
+  document.querySelectorAll('#tech-checks input').forEach(function(cb){
+    cb.checked = s ? isTech(s, cb.value) : false; toggleCk(cb);
+  });
+  document.querySelectorAll('#band-checks input').forEach(function(cb){
+    cb.checked = s ? isBand(s, cb.value) : false; toggleCk(cb);
+  });
+  document.getElementById('modal-add').classList.add('open');
+}
+function closeModal(){ document.getElementById('modal-add').classList.remove('open'); }
+function toggleCk(cb){ cb.closest('.ck').classList.toggle('on', cb.checked); }
+
+async function saveSite() {
+  var sid   = document.getElementById('f-site_id').value.trim();
+  var sname = document.getElementById('f-site_name').value.trim();
+  if (!sid || !sname) { alert('Site ID and Site Name are required.'); return; }
+
+  var params = {
+    action: 'save',
+    site_id:     sid,
+    site_name:   sname,
+    site_status: document.getElementById('f-site_status').value,
+    site_type:   document.getElementById('f-site_type').value,
+    address:     document.getElementById('f-address').value.trim(),
+    site_tag:    document.getElementById('f-site_tag').value.trim(),
+    brgy:        document.getElementById('f-brgy').value.trim(),
+    city:        document.getElementById('f-city').value.trim(),
+    province:    document.getElementById('f-province').value.trim(),
+    region:      document.getElementById('f-region').value.trim(),
+    area:        document.getElementById('f-area').value.trim(),
+    latitude:    document.getElementById('f-latitude').value.trim(),
+    longitude:   document.getElementById('f-longitude').value.trim()
+  };
+  document.querySelectorAll('#tech-checks input').forEach(function(cb){
+    params['tech_'+cb.value.toLowerCase()] = cb.checked ? 'TRUE' : 'FALSE';
+  });
+  document.querySelectorAll('#band-checks input').forEach(function(cb){
+    params['band_'+cb.value.toLowerCase()] = cb.checked ? 'TRUE' : 'FALSE';
+  });
+  if (editRow) params._row = editRow;
+
+  var btn = document.getElementById('save-btn');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+  syncDot('spin');
+  try {
+    var res = await gsGet(GS_URL, params);
+    if (res.error) throw new Error(res.error);
+    closeModal();
+    showToast(editRow ? 'Site updated!' : 'Site added!');
+    await loadSites();
+  } catch(e) {
+    syncDot('err');
+    showToast('Save error: ' + e.message, true);
+  } finally {
+    btn.textContent = 'Save Site'; btn.disabled = false;
+  }
+}
+
+async function deleteSite() {
+  if (!editRow || !confirm('Delete this site? This cannot be undone.')) return;
+  syncDot('spin');
+  try {
+    var res = await gsGet(GS_URL, { action: 'delete', _row: editRow });
+    if (res.error) throw new Error(res.error);
+    closeModal();
+    showToast('Site deleted.');
+    await loadSites();
+  } catch(e) {
+    syncDot('err');
+    showToast('Delete error: ' + e.message, true);
+  }
+}
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function syncDot(state) {
+  var dot = document.getElementById('sync-dot');
+  var lbl = document.getElementById('sync-lbl');
+  if (!dot || !lbl) return;
+  dot.className = 'dot' + (state==='spin' ? ' spin' : state==='err' ? ' err' : '');
+  lbl.textContent = state==='spin' ? 'Syncing...' : state==='err' ? 'Error' : 'Synced';
+}
+
+var toastTimer;
+function showToast(msg, isErr) {
+  var el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'show' + (isErr ? ' terr' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.className=''; }, 3500);
+}
+</script>
+</body>
+</html>
