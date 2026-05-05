@@ -652,6 +652,7 @@ var techF = 'all', statusF = 'all', searchQ = '';
 var editRow = null, detailIdx = -1;
 var cellCache = {}; // keyed by _row, stores fetched cell data
 var _detailMap = null;
+var _tileLayer = null;
 var _kmzLayers = {};
 var _kmzCounter = 0;
 var selMode = 'admin';
@@ -1040,7 +1041,11 @@ function showDetail(idx) {
     mapHtml = '<div class="det-f full" style="margin-top:4px">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
         '<div class="det-k">&#128205; Map View</div>' +
-        '<button id="map-exp-btn-' + mapId + '" onclick="toggleMapExpand(\'' + mapId + '\')" style="font-size:11px;padding:3px 10px;border:1px solid #d0d0d0;border-radius:5px;background:#f9f9f9;color:#555;cursor:pointer;line-height:1.4">&#8599; Expand</button>' +
+        '<div style="display:flex;gap:4px;align-items:center">' +
+          '<button id="tile-map-' + mapId + '" onclick="setTileLayer(\'' + mapId + '\',\'map\')" style="font-size:11px;padding:3px 9px;border:1px solid #1a1a2e;border-radius:5px;background:#1a1a2e;color:#fff;cursor:pointer;line-height:1.4">Map</button>' +
+          '<button id="tile-sat-' + mapId + '" onclick="setTileLayer(\'' + mapId + '\',\'satellite\')" style="font-size:11px;padding:3px 9px;border:1px solid #d0d0d0;border-radius:5px;background:#f9f9f9;color:#555;cursor:pointer;line-height:1.4">Satellite</button>' +
+          '<button id="map-exp-btn-' + mapId + '" onclick="toggleMapExpand(\'' + mapId + '\')" style="font-size:11px;padding:3px 10px;border:1px solid #d0d0d0;border-radius:5px;background:#f9f9f9;color:#555;cursor:pointer;line-height:1.4">&#8599; Expand</button>' +
+        '</div>' +
       '</div>' +
       '<div id="' + mapId + '" style="width:100%;height:260px;border-radius:8px;border:1px solid #e0e0e0;z-index:1;transition:height .3s ease"></div>' +
       '<div style="font-size:11px;color:#aaa;margin-top:5px">Coordinates: ' + lat + ', ' + lon +
@@ -1070,7 +1075,7 @@ function showDetail(idx) {
       if (!mapEl || mapEl._leaflet_id) return;
       var m = L.map(mapId, { zoomControl: true, scrollWheelZoom: true }).setView([lat, lon], 14);
       _detailMap = m;
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      _tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
         subdomains: 'abcd', maxZoom: 19
       }).addTo(m);
@@ -1128,6 +1133,7 @@ function closeDetail(){
   });
   _kmzLayers = {};
   _detailMap = null;
+  _tileLayer = null;
   document.getElementById('modal-detail').classList.remove('open');
 }
 function editFromDetail(){ closeDetail(); openModal(detailIdx); }
@@ -1141,6 +1147,34 @@ function toggleMapExpand(mapId) {
   mapEl.setAttribute('data-expanded', expanded ? '0' : '1');
   btn.innerHTML = expanded ? '&#8599; Expand' : '&#8601; Collapse';
   if (_detailMap) setTimeout(function(){ _detailMap.invalidateSize(); }, 320);
+}
+
+function setTileLayer(mapId, type) {
+  if (!_detailMap) return;
+  if (_tileLayer) { _detailMap.removeLayer(_tileLayer); }
+  if (type === 'satellite') {
+    _tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '&copy; Esri &mdash; Esri, DigitalGlobe, GeoEye, USDA FSA, USGS, AEX, Getmapping, Aerogrid, IGN, IGP, swisstopo, GIS Community',
+      maxZoom: 19
+    }).addTo(_detailMap);
+  } else {
+    _tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd', maxZoom: 19
+    }).addTo(_detailMap);
+  }
+  var btnMap = document.getElementById('tile-map-' + mapId);
+  var btnSat = document.getElementById('tile-sat-' + mapId);
+  if (btnMap) {
+    btnMap.style.background   = type === 'map' ? '#1a1a2e' : '#f9f9f9';
+    btnMap.style.color        = type === 'map' ? '#fff' : '#555';
+    btnMap.style.borderColor  = type === 'map' ? '#1a1a2e' : '#d0d0d0';
+  }
+  if (btnSat) {
+    btnSat.style.background   = type === 'satellite' ? '#1a1a2e' : '#f9f9f9';
+    btnSat.style.color        = type === 'satellite' ? '#fff' : '#555';
+    btnSat.style.borderColor  = type === 'satellite' ? '#1a1a2e' : '#d0d0d0';
+  }
 }
 
 // ─── KMZ Layer functions ──────────────────────────────────────────────────────
@@ -1224,6 +1258,7 @@ async function _parseAndAddKmz(mapId, name, source) {
       opacity: opacity, interactive: false, zIndex: 200
     });
     layer.addTo(_detailMap);
+    try { _detailMap.fitBounds([[south, west], [north, east]]); } catch(e) {}
 
     var lid = 'kmzl-' + (++_kmzCounter);
     _kmzLayers[lid] = { layer: layer, imgUrl: imgUrl, visible: true };
