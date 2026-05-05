@@ -149,6 +149,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .band-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #f0f0f0}
 .band-hdr-badge{font-size:14px;font-weight:700;padding:4px 12px;border-radius:6px}
 .no-cells{text-align:center;padding:2.5rem;color:#bbb;font-size:13px}
+.user-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid #f0f0f0;border-radius:7px;margin-bottom:6px;background:#fafafa}
+.user-name{font-size:13px;font-weight:600;color:#1a1a2e}
+.user-meta{font-size:12px;color:#aaa;margin-left:6px}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transition:opacity .3s;z-index:9999;pointer-events:none;white-space:nowrap}
 #toast.show{opacity:1}
 #toast.terr{background:#A32D2D}
@@ -175,8 +178,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="login-sub">Login</div>
 
     <div class="login-fg">
-      <label>Your Name</label>
-      <input type="text" id="login-name" placeholder="Enter your name" onkeydown="if(event.key==='Enter')document.getElementById('login-pw').focus()"/>
+      <label>Username</label>
+      <input type="text" id="login-user" placeholder="Enter your username" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-pw').focus()"/>
     </div>
     <div class="login-fg">
       <label>Password</label>
@@ -204,6 +207,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="app-sub" id="welcome-msg">Welcome!</div>
       <div style="display:flex;gap:8px;align-items:center">
         <div class="sync"><div class="dot" id="sync-dot"></div><span id="sync-lbl">Synced</span></div>
+        <button class="btn-sec" id="user-mgmt-btn" style="display:none" onclick="openUserMgmt()">&#128100; Manage Users</button>
         <button class="btn-sec" onclick="loadSites()">&#8635; Refresh</button>
         <button class="btn-sec" onclick="doLogout()">Logout</button>
       </div>
@@ -339,6 +343,37 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <div id="toast"></div>
 
+<!-- User Management Modal -->
+<div class="modal-bg" id="modal-users">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h3>User Management</h3>
+      <button class="modal-x" onclick="closeUserMgmt()">&#215;</button>
+    </div>
+    <div class="sec-title">Existing Users</div>
+    <div id="user-list"><div style="color:#aaa;font-size:13px;padding:8px 0">Loading...</div></div>
+    <div class="sec-title" style="margin-top:1.5rem">Add New User</div>
+    <div class="fg-grid">
+      <div class="fg"><label>Display Name *</label><input id="nu-name" placeholder="e.g. Juan dela Cruz"/></div>
+      <div class="fg"><label>Username *</label><input id="nu-user" placeholder="e.g. jdelacruz"/></div>
+      <div class="fg"><label>Password *</label><input type="password" id="nu-pw" placeholder="New password"/></div>
+      <div class="fg"><label>Confirm Password *</label><input type="password" id="nu-pw2" placeholder="Repeat password"/></div>
+      <div class="fg"><label>Role</label>
+        <select id="nu-role">
+          <option value="viewer">Viewer (read-only)</option>
+          <option value="editor">Editor (view + edit)</option>
+          <option value="admin">Admin (full access)</option>
+        </select>
+      </div>
+    </div>
+    <div class="login-err" id="user-err" style="margin-bottom:.75rem"></div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeUserMgmt()">Close</button>
+      <button class="btn-save" id="nu-btn" onclick="submitCreateUser()">Create User</button>
+    </div>
+  </div>
+</div>
+
 <!-- Cell Details Modal -->
 <div class="modal-bg" id="modal-cell">
   <div class="modal modal-wide">
@@ -390,10 +425,14 @@ var GAS_CODE = [
   "}",
   "function run(p) {",
   "  try {",
-  "    if (p.action === 'get')      return getAll();",
-  "    if (p.action === 'getCells') return getCells(p);",
-  "    if (p.action === 'save')     return save(p);",
-  "    if (p.action === 'delete')   return del(p);",
+  "    if (p.action === 'get')        return getAll();",
+  "    if (p.action === 'getCells')   return getCells(p);",
+  "    if (p.action === 'save')       return save(p);",
+  "    if (p.action === 'delete')     return del(p);",
+  "    if (p.action === 'login')      return login(p);",
+  "    if (p.action === 'createUser') return createUser(p);",
+  "    if (p.action === 'deleteUser') return deleteUser(p);",
+  "    if (p.action === 'listUsers')  return listUsers(p);",
   "    return { error: 'Unknown action: ' + (p.action || 'none') };",
   "  } catch(e) { return { error: e.message }; }",
   "}",
@@ -420,7 +459,85 @@ var GAS_CODE = [
   "}",
   "function runSetup() {",
   "  getSheet();",
-  "  SpreadsheetApp.getUi().alert('Setup complete! All columns are now synced.');",
+  "  var ss = SpreadsheetApp.getActiveSpreadsheet();",
+  "  var us = ss.getSheetByName('Users');",
+  "  if (!us) {",
+  "    us = ss.insertSheet('Users');",
+  "    us.appendRow(['username','password_hash','display_name','role','created_at']);",
+  "    us.setFrozenRows(1);",
+  "    us.getRange(1,1,1,5).setFontWeight('bold');",
+  "    var defaultPw = 'Admin@2026!';",
+  "    var hash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, defaultPw)",
+  "      .map(function(b){ return (b < 0 ? b + 256 : b).toString(16).padStart(2,'0'); }).join('');",
+  "    us.appendRow(['admin', hash, 'Administrator', 'admin', new Date().toISOString()]);",
+  "    console.log('Setup complete! Default admin created. Username: admin  Password: Admin@2026!');",
+  "  } else {",
+  "    console.log('Setup complete! Sites columns synced. Users sheet already exists.');",
+  "  }",
+  "}",
+  "function getUsersSheet() {",
+  "  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Users');",
+  "}",
+  "function isAdmin(p) {",
+  "  if (!p || typeof p !== 'object') return false;",
+  "  var sh = getUsersSheet(); if (!sh) return false;",
+  "  var rows = sh.getDataRange().getValues();",
+  "  var h = rows[0].map(function(v){ return String(v).trim(); });",
+  "  var ui = h.indexOf('username'), pi = h.indexOf('password_hash'), ri = h.indexOf('role');",
+  "  for (var i = 1; i < rows.length; i++) {",
+  "    if (String(rows[i][ui]).trim() === String(p.auth_user||'').trim() && String(rows[i][pi]).trim() === String(p.auth_hash||'').trim() && String(rows[i][ri]).trim().toLowerCase() === 'admin') return true;",
+  "  }",
+  "  return false;",
+  "}",
+  "function login(p) {",
+  "  var sh = getUsersSheet();",
+  "  if (!sh) return { error: 'No accounts found. Ask your admin to run Setup.' };",
+  "  var rows = sh.getDataRange().getValues();",
+  "  var h = rows[0].map(function(v){ return String(v).trim(); });",
+  "  var ui = h.indexOf('username'), pi = h.indexOf('password_hash'), ni = h.indexOf('display_name'), ri = h.indexOf('role');",
+  "  for (var i = 1; i < rows.length; i++) {",
+  "    if (String(rows[i][ui]).toLowerCase() === String(p.username).toLowerCase() && rows[i][pi] === p.hash) {",
+  "      return { ok: true, display_name: rows[i][ni], role: rows[i][ri], username: rows[i][ui] };",
+  "    }",
+  "  }",
+  "  return { error: 'Incorrect username or password.' };",
+  "}",
+  "function createUser(p) {",
+  "  if (!isAdmin(p)) return { error: 'Admin access required.' };",
+  "  if (!p.new_username || !p.new_hash || !p.display_name) return { error: 'Missing required fields.' };",
+  "  var ss = SpreadsheetApp.getActiveSpreadsheet();",
+  "  var sh = ss.getSheetByName('Users');",
+  "  if (!sh) {",
+  "    sh = ss.insertSheet('Users');",
+  "    sh.appendRow(['username','password_hash','display_name','role','created_at']);",
+  "    sh.setFrozenRows(1); sh.getRange(1,1,1,5).setFontWeight('bold');",
+  "  }",
+  "  var rows = sh.getDataRange().getValues();",
+  "  var uIdx = rows[0].map(function(v){ return String(v).trim(); }).indexOf('username');",
+  "  for (var i = 1; i < rows.length; i++) {",
+  "    if (String(rows[i][uIdx]).toLowerCase() === String(p.new_username).toLowerCase()) return { error: 'Username already taken.' };",
+  "  }",
+  "  sh.appendRow([p.new_username, p.new_hash, p.display_name, p.role || 'viewer', new Date().toISOString()]);",
+  "  return { ok: true };",
+  "}",
+  "function deleteUser(p) {",
+  "  if (!isAdmin(p)) return { error: 'Admin access required.' };",
+  "  var sh = getUsersSheet(); if (!sh) return { error: 'Users sheet not found.' };",
+  "  var rows = sh.getDataRange().getValues();",
+  "  var uIdx = rows[0].map(function(v){ return String(v).trim(); }).indexOf('username');",
+  "  for (var i = 1; i < rows.length; i++) {",
+  "    if (String(rows[i][uIdx]).trim() === String(p.del_username||'').trim()) { sh.deleteRow(i + 1); return { ok: true }; }",
+  "  }",
+  "  return { error: 'User not found.' };",
+  "}",
+  "function listUsers(p) {",
+  "  if (!isAdmin(p)) return { error: 'Admin access required.' };",
+  "  var sh = getUsersSheet(); if (!sh) return { users: [] };",
+  "  var rows = sh.getDataRange().getValues();",
+  "  if (rows.length < 2) return { users: [] };",
+  "  var h = rows[0].map(function(v){ return String(v).trim(); });",
+  "  var ui = h.indexOf('username'), ni = h.indexOf('display_name'), ri = h.indexOf('role');",
+  "  return { users: rows.slice(1).map(function(r){ return { username: r[ui], display_name: r[ni], role: r[ri] }; }) };",
   "}",
   "function getAll() {",
   "  var sh = getSheet();",
@@ -487,6 +604,8 @@ var BANDS = ['G900','G1800','L700','L850','L1800','L2100','L2300','L2600','NR700
 
 // â”€â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var IS_ADMIN = false;
+var USER_ROLE = '';
+var AUTH_USER = '', AUTH_HASH = '';
 var ALL = [], filtered = [];
 var curPage = 1, PER = 25;
 var sortCol = 'site_id', sortDir = 1;
@@ -525,16 +644,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Pre-fill name from localStorage
-  var savedName = localStorage.getItem('tsdb_username') || '';
-  if (savedName) document.getElementById('login-name').value = savedName;
+  // Pre-fill username from localStorage
+  var savedUser = localStorage.getItem('tsdb_last_user') || '';
+  if (savedUser) document.getElementById('login-user').value = savedUser;
 
   // Restore session if still active (tab not closed)
   try {
     var sess = JSON.parse(sessionStorage.getItem('tsdb_session') || 'null');
-    if (sess) {
-      IS_ADMIN = !!sess.admin;
-      showApp(localStorage.getItem('tsdb_username') || sess.user || 'User');
+    if (sess && sess.username) {
+      IS_ADMIN = sess.role === 'admin';
+      USER_ROLE = sess.role || 'viewer';
+      AUTH_USER = sess.username;
+      AUTH_HASH = sess.auth_hash || '';
+      showApp(sess.display_name || sess.username);
     }
   } catch(e) {}
 });
@@ -542,18 +664,10 @@ document.addEventListener('DOMContentLoaded', function() {
 // â”€â”€â”€ Config (hardcoded) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var GS_URL = 'https://script.google.com/macros/s/AKfycbzdNEzS3t6mnw7wWBxm3UFmHUtz39PWvmpS2BnSnRyvsOuhk6LS1H-V-58nsx25BwEenw/exec';
 
-// SHA-256 hash of password — change to update your password
-// Current password: Acc3$$2026
-var PW_HASHES = {
-  admin: '4d278ca57bacebf8ebe72c176fedf12cccdbf1c70fd7e26019ae0fca59ea7cd4'
-};
-
 async function sha256(msg) {
   var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
   return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
 }
-
-// â”€â”€â”€ Login â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function togglePw() {
   var inp = document.getElementById('login-pw');
@@ -561,37 +675,50 @@ function togglePw() {
 }
 
 async function doLogin() {
+  var username = document.getElementById('login-user').value.trim();
   var pw = document.getElementById('login-pw').value;
   var errEl = document.getElementById('login-err');
   var btn = document.getElementById('login-btn');
-  if (!pw) { errEl.style.display = 'block'; return; }
+  if (!username || !pw) {
+    errEl.textContent = 'Please enter your username and password.';
+    errEl.style.display = 'block'; return;
+  }
 
   btn.textContent = 'Signing in...'; btn.disabled = true;
   errEl.style.display = 'none';
 
-  var hash = await sha256(pw);
-  var expected = PW_HASHES['admin'];
-
-  if (hash !== expected) {
+  try {
+    var hash = await sha256(pw);
+    var res = await gsGet(GS_URL, { action: 'login', username: username, hash: hash });
+    if (res.error) {
+      errEl.textContent = res.error;
+      errEl.style.display = 'block';
+      document.getElementById('login-pw').value = '';
+      document.getElementById('login-pw').focus();
+      return;
+    }
+    IS_ADMIN = res.role === 'admin';
+    USER_ROLE = res.role || 'viewer';
+    AUTH_USER = res.username;
+    AUTH_HASH = hash;
+    localStorage.setItem('tsdb_last_user', res.username);
+    sessionStorage.setItem('tsdb_session', JSON.stringify({
+      username: res.username, display_name: res.display_name,
+      role: res.role, auth_hash: hash
+    }));
+    showApp(res.display_name || res.username);
+  } catch(e) {
+    errEl.textContent = 'Connection error: ' + e.message;
     errEl.style.display = 'block';
+  } finally {
     btn.textContent = 'Sign In'; btn.disabled = false;
-    document.getElementById('login-pw').value = '';
-    document.getElementById('login-pw').focus();
-    return;
   }
-
-  IS_ADMIN = true;
-  var displayName = (document.getElementById('login-name').value.trim()) || localStorage.getItem('tsdb_username') || 'User';
-  localStorage.setItem('tsdb_username', displayName);
-  sessionStorage.setItem('tsdb_session', JSON.stringify({ admin: IS_ADMIN, user: displayName }));
-  showApp(displayName);
-  btn.textContent = 'Sign In'; btn.disabled = false;
 }
 
 function doLogout() {
   if (!confirm('Log out?')) return;
   sessionStorage.removeItem('tsdb_session');
-  IS_ADMIN = false; ALL = []; cellCache = {};
+  IS_ADMIN = false; USER_ROLE = ''; AUTH_USER = ''; AUTH_HASH = ''; ALL = []; cellCache = {};
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('login-pw').value = '';
@@ -602,8 +729,9 @@ function showApp(userName) {
   userName = userName || 'User';
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  document.getElementById('add-btn').style.display = IS_ADMIN ? '' : 'none';
-  document.getElementById('readonly-bar').style.display = IS_ADMIN ? 'none' : 'block';
+  document.getElementById('add-btn').style.display = (IS_ADMIN || USER_ROLE === 'editor') ? '' : 'none';
+  document.getElementById('readonly-bar').style.display = USER_ROLE === 'viewer' ? 'block' : 'none';
+  document.getElementById('user-mgmt-btn').style.display = IS_ADMIN ? '' : 'none';
   var welcomeEl = document.getElementById('welcome-msg');
   if (welcomeEl) welcomeEl.textContent = 'Welcome, ' + userName + '!';
   loadSites();
@@ -846,7 +974,7 @@ function showDetail(idx) {
     mapHtml +
     '</div>';
 
-  document.getElementById('det-edit-btn').style.display = IS_ADMIN ? '' : 'none';
+  document.getElementById('det-edit-btn').style.display = (IS_ADMIN || USER_ROLE === 'editor') ? '' : 'none';
   document.getElementById('modal-detail').classList.add('open');
 }
 function closeDetail(){ document.getElementById('modal-detail').classList.remove('open'); }
@@ -999,7 +1127,7 @@ function renderCellPanels(s, activeBands, cellData) {
 
   document.getElementById('cell-tabs-row').innerHTML = tabsHtml;
   document.getElementById('cell-panels').innerHTML = panelsHtml;
-  document.getElementById('cell-edit-btn').style.display = IS_ADMIN ? '' : 'none';
+  document.getElementById('cell-edit-btn').style.display = (IS_ADMIN || USER_ROLE === 'editor') ? '' : 'none';
 }
 
 function switchCellTab(band) {
@@ -1084,6 +1212,7 @@ function openModal(idx) {
   editRow = s ? s._row : null;
   document.getElementById('modal-title').textContent = s ? 'Edit Site' : 'Add New Site';
   document.getElementById('del-btn').style.display = (s && IS_ADMIN) ? '' : 'none';
+  document.getElementById('save-btn').textContent = IS_ADMIN ? 'Save Site' : 'Save Changes';
 
   var fields = ['site_id','site_name','address','site_tag','brgy','city','province','region','area','latitude','longitude'];
   fields.forEach(function(k){
@@ -1172,6 +1301,87 @@ function syncDot(state) {
   if (!dot || !lbl) return;
   dot.className = 'dot' + (state==='spin' ? ' spin' : state==='err' ? ' err' : '');
   lbl.textContent = state==='spin' ? 'Syncing...' : state==='err' ? 'Error' : 'Synced';
+}
+
+// ─── User Management ─────────────────────────────────────────────────────────
+function openUserMgmt() {
+  document.getElementById('modal-users').classList.add('open');
+  document.getElementById('user-err').style.display = 'none';
+  ['nu-name','nu-user','nu-pw','nu-pw2'].forEach(function(id){ document.getElementById(id).value = ''; });
+  document.getElementById('nu-role').value = 'viewer';
+  loadUsers();
+}
+function closeUserMgmt() { document.getElementById('modal-users').classList.remove('open'); }
+
+async function loadUsers() {
+  document.getElementById('user-list').innerHTML = '<div style="color:#aaa;font-size:13px;padding:8px 0">Loading...</div>';
+  try {
+    var res = await gsGet(GS_URL, { action: 'listUsers', auth_user: AUTH_USER, auth_hash: AUTH_HASH });
+    if (res.error) { document.getElementById('user-list').innerHTML = '<div style="color:#c00;font-size:13px">' + escHtml(res.error) + '</div>'; return; }
+    renderUserList(res.users || []);
+  } catch(e) {
+    document.getElementById('user-list').innerHTML = '<div style="color:#c00;font-size:13px">Error: ' + escHtml(e.message) + '</div>';
+  }
+}
+
+function renderUserList(users) {
+  var el = document.getElementById('user-list');
+  if (!users.length) { el.innerHTML = '<div style="color:#aaa;font-size:13px;padding:8px 0">No users found.</div>'; return; }
+  el.innerHTML = users.map(function(u) {
+    var isSelf = u.username === AUTH_USER;
+    var roleBadge = u.role === 'admin'
+      ? '<span class="badge b4g" style="margin-left:6px">Admin</span>'
+      : u.role === 'editor'
+      ? '<span class="badge b2g" style="margin-left:6px">Editor</span>'
+      : '<span class="badge" style="background:#f0f0f0;color:#555;margin-left:6px">Viewer</span>';
+    return '<div class="user-row">' +
+      '<div><span class="user-name">' + escHtml(u.display_name) + '</span>' +
+      '<span class="user-meta">@' + escHtml(u.username) + '</span>' + roleBadge + '</div>' +
+      (isSelf
+        ? '<span style="font-size:11px;color:#aaa;padding:0 4px">You</span>'
+        : '<button class="btn-cancel btn-del" style="height:28px;font-size:12px" onclick="confirmDeleteUser(\'' + escHtml(u.username) + '\')">Remove</button>') +
+      '</div>';
+  }).join('');
+}
+
+async function submitCreateUser() {
+  var name  = document.getElementById('nu-name').value.trim();
+  var uname = document.getElementById('nu-user').value.trim();
+  var pw    = document.getElementById('nu-pw').value;
+  var pw2   = document.getElementById('nu-pw2').value;
+  var role  = document.getElementById('nu-role').value;
+  var errEl = document.getElementById('user-err');
+  var btn   = document.getElementById('nu-btn');
+
+  errEl.style.display = 'none';
+  if (!name || !uname || !pw) { errEl.textContent = 'Display name, username and password are required.'; errEl.style.display = 'block'; return; }
+  if (pw !== pw2) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; return; }
+  if (pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
+
+  btn.textContent = 'Creating...'; btn.disabled = true;
+  try {
+    var newHash = await sha256(pw);
+    var res = await gsGet(GS_URL, { action: 'createUser', auth_user: AUTH_USER, auth_hash: AUTH_HASH,
+      new_username: uname, new_hash: newHash, display_name: name, role: role });
+    if (res.error) { errEl.textContent = res.error; errEl.style.display = 'block'; return; }
+    showToast('User "' + uname + '" created!');
+    ['nu-name','nu-user','nu-pw','nu-pw2'].forEach(function(id){ document.getElementById(id).value = ''; });
+    loadUsers();
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message; errEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Create User'; btn.disabled = false;
+  }
+}
+
+async function confirmDeleteUser(username) {
+  if (!confirm('Remove user "' + username + '"? This cannot be undone.')) return;
+  try {
+    var res = await gsGet(GS_URL, { action: 'deleteUser', auth_user: AUTH_USER, auth_hash: AUTH_HASH, del_username: username });
+    if (res.error) { showToast(res.error, true); return; }
+    showToast('User "' + username + '" removed.');
+    loadUsers();
+  } catch(e) { showToast('Error: ' + e.message, true); }
 }
 
 var toastTimer;
