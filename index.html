@@ -1218,7 +1218,6 @@ async function _parseAndAddKmz(mapId, name, source) {
     }
 
     var zip = await JSZip.loadAsync(ab);
-
     var kmlEntry = null;
     zip.forEach(function(path, entry) {
       if (!kmlEntry && path.toLowerCase().endsWith('.kml')) kmlEntry = entry;
@@ -1229,41 +1228,103 @@ async function _parseAndAddKmz(mapId, name, source) {
     var parser = new DOMParser();
     var kmlDoc = parser.parseFromString(kmlText, 'text/xml');
 
-    var go = kmlDoc.querySelector('GroundOverlay');
-    if (!go) throw new Error('No GroundOverlay found. Only raster coverage KMZ is currently supported.');
-
-    var hrefEl = go.querySelector('Icon href');
-    if (!hrefEl) throw new Error('GroundOverlay has no Icon href');
-    var href = hrefEl.textContent.trim();
-
-    var north = parseFloat(go.querySelector('LatLonBox north').textContent);
-    var south = parseFloat(go.querySelector('LatLonBox south').textContent);
-    var east  = parseFloat(go.querySelector('LatLonBox east').textContent);
-    var west  = parseFloat(go.querySelector('LatLonBox west').textContent);
-    if ([north, south, east, west].some(isNaN)) throw new Error('Invalid bounds in LatLonBox');
-
-    var imgBasename = href.split('/').pop();
-    var imgEntry = null;
-    zip.forEach(function(path, entry) {
-      if (!imgEntry && (path === href || path.split('/').pop() === imgBasename)) imgEntry = entry;
+    // Parse <Style> definitions
+    var styles = {};
+    kmlDoc.querySelectorAll('Style[id]').forEach(function(s) {
+      var lineColorEl = s.querySelector('LineStyle color');
+      var polyColorEl = s.querySelector('PolyStyle color');
+      var widthEl     = s.querySelector('LineStyle width');
+      var fillEl      = s.querySelector('PolyStyle fill');
+      styles[s.getAttribute('id')] = {
+        lineColor: lineColorEl ? lineColorEl.textContent.trim() : null,
+        polyColor: polyColorEl ? polyColorEl.textContent.trim() : null,
+        width:     widthEl ? parseFloat(widthEl.textContent) || 1 : 1,
+        fill:      fillEl  ? fillEl.textContent.trim() !== '0' : true
+      };
     });
-    if (!imgEntry) throw new Error('Image not found in KMZ: ' + href);
+    // Resolve <StyleMap> to their 'normal' pair
+    kmlDoc.querySelectorAll('StyleMap[id]').forEach(function(sm) {
+      sm.querySelectorAll('Pair').forEach(function(pair) {
+        var key = pair.querySelector('key');
+        var url = pair.querySelector('styleUrl');
+        if (key && url && key.textContent.trim() === 'normal') {
+          var ref = url.textContent.trim().replace(/^#/, '');
+          if (styles[ref]) styles[sm.getAttribute('id')] = styles[ref];
+        }
+      });
+    });
 
-    var imgBlob = await imgEntry.async('blob');
-    var imgUrl = URL.createObjectURL(imgBlob);
+    function kmlToHex(kmlColor) {
+      // KML color format: AABBGGRR
+      if (!kmlColor || kmlColor.length < 8) return { hex: '#3388ff', a: 1 };
+      var a = parseInt(kmlColor.slice(0,2), 16) / 255;
+      var b = parseInt(kmlColor.slice(2,4), 16);
+      var g = parseInt(kmlColor.slice(4,6), 16);
+      var r = parseInt(kmlColor.slice(6,8), 16);
+      return { hex: '#' + ('0'+r.toString(16)).slice(-2) + ('0'+g.toString(16)).slice(-2) + ('0'+b.toString(16)).slice(-2), a: a };
+    }
+
+    function parseCoordsToLatLngs(coordText) {
+      return coordText.trim().split(/\s+/).map(function(c) {
+        var p = c.split(',');
+        return [parseFloat(p[1]), parseFloat(p[0])];
+      }).filter(function(ll) { return !isNaN(ll[0]) && !isNaN(ll[1]); });
+    }
 
     var opSlider = document.getElementById('kmz-opacity-' + mapId);
-    var opacity = opSlider ? (parseInt(opSlider.value) / 100) : 1.0;
+    var sliderOp = opSlider ? (parseInt(opSlider.value) / 100) : 1.0;
 
-    var layer = L.imageOverlay(imgUrl, [[south, west], [north, east]], {
-      opacity: opacity, interactive: false, zIndex: 200, className: 'kmz-overlay'
+    var group = L.featureGroup();
+    var featureCount = 0;
+
+    kmlDoc.querySelectorAll('Placemark').forEach(function(pm) {
+      var styleUrl = pm.querySelector('styleUrl');
+      var s = styleUrl ? (styles[styleUrl.textContent.trim().replace(/^#/, '')] || {}) : {};
+      var lc = kmlToHex(s.lineColor);
+      var pc = kmlToHex(s.polyColor || s.lineColor);
+      var vStyle = {
+        color:       lc.hex,
+        opacity:     lc.a * sliderOp,
+        weight:      s.width || 1,
+        fillColor:   pc.hex,
+        fillOpacity: (s.fill !== false) ? pc.a * sliderOp * 0.55 : 0
+      };
+
+      pm.querySelectorAll('Polygon').forEach(function(poly) {
+        var outerEl = poly.querySelector('outerBoundaryIs LinearRing coordinates');
+        if (!outerEl) return;
+        var rings = [parseCoordsToLatLngs(outerEl.textContent)];
+        poly.querySelectorAll('innerBoundaryIs LinearRing coordinates').forEach(function(h) {
+          rings.push(parseCoordsToLatLngs(h.textContent));
+        });
+        if (rings[0].length > 1) { L.polygon(rings, vStyle).addTo(group); featureCount++; }
+      });
+
+      pm.querySelectorAll('LineString coordinates').forEach(function(coordEl) {
+        var latlngs = parseCoordsToLatLngs(coordEl.textContent);
+        if (latlngs.length > 1) {
+          L.polyline(latlngs, { color: lc.hex, opacity: lc.a * sliderOp, weight: s.width || 2 }).addTo(group);
+          featureCount++;
+        }
+      });
+
+      pm.querySelectorAll('Point coordinates').forEach(function(coordEl) {
+        var p = coordEl.textContent.trim().split(',');
+        var lat = parseFloat(p[1]), lon = parseFloat(p[0]);
+        if (!isNaN(lat) && !isNaN(lon)) {
+          L.circleMarker([lat, lon], { radius: 4, color: lc.hex, fillColor: lc.hex, fillOpacity: 0.85, weight: 1, opacity: sliderOp }).addTo(group);
+          featureCount++;
+        }
+      });
     });
-    layer.addTo(_detailMap);
+
+    if (!featureCount) throw new Error('No vector features found in KMZ');
+    group.addTo(_detailMap);
 
     var lid = 'kmzl-' + (++_kmzCounter);
-    _kmzLayers[lid] = { layer: layer, imgUrl: imgUrl, visible: true };
+    _kmzLayers[lid] = { layer: group, visible: true, type: 'vector' };
     _addKmzLayerRow(mapId, lid, name);
-    showToast('Loaded: ' + name);
+    showToast('Loaded: ' + name + ' (' + featureCount + ' features)');
   } catch(e) {
     showToast('KMZ error: ' + e.message, true);
   }
@@ -1306,10 +1367,13 @@ function removeKmzLayer(mapId, lid) {
 function updateKmzOpacity(mapId, val) {
   var lbl = document.getElementById('kmz-oplbl-' + mapId);
   if (lbl) lbl.textContent = val + '%';
-  var opacity = val / 100;
+  var op = val / 100;
   Object.keys(_kmzLayers).forEach(function(lid) {
-    if (_kmzLayers[lid].visible && _kmzLayers[lid].layer) {
-      _kmzLayers[lid].layer.setOpacity(opacity);
+    if (!_kmzLayers[lid].visible || !_kmzLayers[lid].layer) return;
+    if (_kmzLayers[lid].type === 'vector') {
+      _kmzLayers[lid].layer.setStyle({ opacity: op, fillOpacity: op * 0.55 });
+    } else {
+      _kmzLayers[lid].layer.setOpacity(op);
     }
   });
 }
