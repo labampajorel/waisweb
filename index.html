@@ -45,15 +45,21 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
 /* â”€â”€ Stats â”€â”€ */
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:1.25rem}
-.stat{background:#fff;border-radius:10px;padding:12px 16px;border:1px solid #e8e8e8}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(90px,1fr)) 1.5fr 1.5fr;gap:10px;margin-bottom:1.25rem;align-items:stretch}
+.stat{background:#fff;border-radius:10px;padding:16px;border:1px solid #e8e8e8;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center}
 .stat-lbl{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.05em}
-.stat-val{font-size:22px;font-weight:700;margin-top:2px;color:#1a1a2e}
+.stat-val{font-size:26px;font-weight:700;margin-top:6px;color:#1a1a2e}
 .stat-val.v-onair{color:#3B6D11}
 .stat-val.v-inactive{color:#888}
 .stat-val.v-2g{color:#3B6D11}
 .stat-val.v-4g{color:#3C3489}
 .stat-val.v-5g{color:#993C1D}
+.stat-wide{text-align:left;justify-content:flex-start;align-items:flex-start;grid-row:span 2}
+.stat-rows{display:flex;flex-direction:column;gap:1px;margin-top:8px;width:100%}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f5f5f5}
+.stat-row:last-child{border-bottom:none}
+.stat-row-lbl{font-size:11px;color:#555;font-weight:500}
+.stat-row-val{font-size:12px;font-weight:700;color:#1a1a2e;min-width:28px;text-align:right}
 
 /* â”€â”€ Toolbar â”€â”€ */
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
@@ -160,7 +166,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .skel{height:13px;border-radius:4px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
+@media(max-width:900px){
+  .stats{grid-template-columns:repeat(4,1fr)}
+  .stat-wide{grid-column:span 2;grid-row:span 1}
+}
 @media(max-width:600px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .stat-wide{grid-column:span 2;grid-row:span 1}
   .fg-grid,.det-grid{grid-template-columns:1fr}
   .fg.full,.det-f.full{grid-column:1}
 }
@@ -221,6 +233,18 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="stat"><div class="stat-lbl">2G Sites</div><div class="stat-val v-2g" id="st-2g">—</div></div>
     <div class="stat"><div class="stat-lbl">4G Sites</div><div class="stat-val v-4g" id="st-4g">—</div></div>
     <div class="stat"><div class="stat-lbl">5G Sites</div><div class="stat-val v-5g" id="st-5g">—</div></div>
+    <div class="stat stat-wide">
+      <div class="stat-lbl">Site Type</div>
+      <div class="stat-rows" id="st-types"><div class="stat-row"><span class="stat-row-lbl">—</span></div></div>
+    </div>
+    <div class="stat stat-wide">
+      <div class="stat-lbl">Area</div>
+      <div class="stat-rows" id="st-areas"><div class="stat-row"><span class="stat-row-lbl">—</span></div></div>
+    </div>
+    <div class="stat"><div class="stat-lbl">Total Bands</div><div class="stat-val" id="st-band-total">—</div></div>
+    <div class="stat"><div class="stat-lbl">2G Bands</div><div class="stat-val v-2g" id="st-band-2g">—</div></div>
+    <div class="stat"><div class="stat-lbl">4G Bands</div><div class="stat-val v-4g" id="st-band-4g">—</div></div>
+    <div class="stat"><div class="stat-lbl">5G Bands</div><div class="stat-val v-5g" id="st-band-5g">—</div></div>
   </div>
 
   <div class="toolbar">
@@ -810,11 +834,34 @@ function refreshSites() {
 }
 
 // â”€â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function fmtN(n){ return Number(n).toLocaleString(); }
 function updateStats() {
-  document.getElementById('st-total').textContent = ALL.length;
-  document.getElementById('st-2g').textContent = ALL.filter(function(s){ return isTrue(s.tech_2g); }).length;
-  document.getElementById('st-4g').textContent = ALL.filter(function(s){ return isTrue(s.tech_4g); }).length;
-  document.getElementById('st-5g').textContent = ALL.filter(function(s){ return isTrue(s.tech_5g); }).length;
+  document.getElementById('st-total').textContent = fmtN(ALL.length);
+  document.getElementById('st-2g').textContent = fmtN(ALL.filter(function(s){ return isTrue(s.tech_2g); }).length);
+  document.getElementById('st-4g').textContent = fmtN(ALL.filter(function(s){ return isTrue(s.tech_4g); }).length);
+  document.getElementById('st-5g').textContent = fmtN(ALL.filter(function(s){ return isTrue(s.tech_5g); }).length);
+
+  var bnd2g = ['band_g900','band_g1800'];
+  var bnd4g = ['band_l700','band_l850','band_l1800','band_l2100','band_l2300','band_l2600'];
+  var bnd5g = ['band_nr700','band_nr2100','band_nr2600','band_nr3500'];
+  var sum = function(arr){ return ALL.reduce(function(t,s){ return t+arr.filter(function(b){return isTrue(s[b]);}).length; },0); };
+  var b2g = sum(bnd2g), b4g = sum(bnd4g), b5g = sum(bnd5g);
+  document.getElementById('st-band-total').textContent = fmtN(b2g + b4g + b5g);
+  document.getElementById('st-band-2g').textContent = fmtN(b2g);
+  document.getElementById('st-band-4g').textContent = fmtN(b4g);
+  document.getElementById('st-band-5g').textContent = fmtN(b5g);
+
+  var SITE_TYPES = ['Macro','Micro','IBS','Macro+IBS','Micro+IBS','MEOW'];
+  document.getElementById('st-types').innerHTML = SITE_TYPES.map(function(t) {
+    var cnt = ALL.filter(function(s){ return normStr(s.site_type) === normStr(t); }).length;
+    return '<div class="stat-row"><span class="stat-row-lbl">' + t + '</span><span class="stat-row-val">' + fmtN(cnt) + '</span></div>';
+  }).join('');
+
+  var AREAS = ['Metro Manila','North Luzon','South Luzon','Visayas','Mindanao'];
+  document.getElementById('st-areas').innerHTML = AREAS.map(function(a) {
+    var cnt = ALL.filter(function(s){ return normStr(s.area) === normStr(a); }).length;
+    return '<div class="stat-row"><span class="stat-row-lbl">' + a + '</span><span class="stat-row-val">' + fmtN(cnt) + '</span></div>';
+  }).join('');
 }
 
 // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
