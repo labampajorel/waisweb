@@ -226,7 +226,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="toolbar">
     <div class="search-box">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5.5" stroke="#aaa" stroke-width="1.3"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.3" stroke-linecap="round"/></svg>
-      <input id="search-input" placeholder="Search by Site ID, name, city, address, region..."/>
+      <input id="search-input" placeholder="Search by Site ID or Site Name..."/>
     </div>
     <div class="filters" id="tech-filters">
       <button class="fb on" data-v="all">All Tech</button>
@@ -840,7 +840,7 @@ function statusBadge(v){
 function applyFilters() {
   var q = searchQ.toLowerCase();
   filtered = ALL.filter(function(s) {
-    var mQ = !q || ['site_id','site_name','address','city','province','region','area','brgy','site_tag']
+    var mQ = !q || ['site_id','site_name']
       .some(function(k){ return normStr(s[k]).indexOf(q) !== -1; });
     var mT = techF === 'all' || isTech(s, techF);
     var mS = statusF === 'all' || normStr(s.site_status) === normStr(statusF);
@@ -977,7 +977,11 @@ function showDetail(idx) {
         if (other.site_id === s.site_id) return; // skip selected, drawn separately below
         var dotIcon = L.divIcon({
           className: '',
-          html: '<div style="width:8px;height:8px;border-radius:50%;background:#aaa;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transform:translate(-50%,-50%)"></div>',
+          html: '<div style="display:flex;flex-direction:column;align-items:center;transform:translateX(-50%)">' +
+                '<div style="background:rgba(80,80,80,0.65);color:#fff;font-size:8px;font-weight:600;font-family:Segoe UI,sans-serif;padding:1px 4px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.2);letter-spacing:.02em">' + escHtml(other.site_id) + '</div>' +
+                '<div style="width:1.5px;height:5px;background:#999;margin:0 auto"></div>' +
+                '<div style="width:7px;height:7px;border-radius:50%;background:#aaa;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>' +
+                '</div>',
           iconSize: [0, 0],
           iconAnchor: [0, 0]
         });
@@ -1018,74 +1022,74 @@ var BAND_META = {
   G900:  { gen:'2G', cls:'b2g', fields:[
     {key:'config',lbl:'Config'},{key:'bts_name',lbl:'BTS Name'},{key:'cell_name',lbl:'Cell Name'},
     {key:'bsc',lbl:'BSC'},{key:'bcch',lbl:'BCCH'},{key:'tch',lbl:'TCH'},
-    {key:'lac',lbl:'LAC'},{key:'m_tilt',lbl:'M Tilt'},{key:'ret',lbl:'RET'},
-    {key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+    {key:'lac',lbl:'LAC'},{key:'m_tilt',lbl:'M Tilt (°)'},{key:'ret',lbl:'RET (°)'},
+    {key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height (m)'},{key:'notes',lbl:'Notes'}
   ]},
   G1800: { gen:'2G', cls:'b2g', fields:[
     {key:'config',lbl:'Config'},{key:'bts_name',lbl:'BTS Name'},{key:'cell_name',lbl:'Cell Name'},
     {key:'bsc',lbl:'BSC'},{key:'bcch',lbl:'BCCH'},{key:'tch',lbl:'TCH'},
-    {key:'lac',lbl:'LAC'},{key:'m_tilt',lbl:'M Tilt'},{key:'ret',lbl:'RET'},
-    {key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+    {key:'lac',lbl:'LAC'},{key:'m_tilt',lbl:'M Tilt (°)'},{key:'ret',lbl:'RET (°)'},
+    {key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height (m)'},{key:'notes',lbl:'Notes'}
   ]},
   L700:  { gen:'4G', cls:'b4g', fields:[
     {key:'config',lbl:'Config'},{key:'enodeb_name',lbl:'eNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
     {key:'earfcn',lbl:'EARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
-    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
-    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth (MHz)'},{key:'m_tilt',lbl:'M Tilt (°)'},
+    {key:'ret',lbl:'RET (°)'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height (m)'},{key:'notes',lbl:'Notes'}
   ]},
   L850:  { gen:'4G', cls:'b4g', fields:[
     {key:'config',lbl:'Config'},{key:'enodeb_name',lbl:'eNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
     {key:'earfcn',lbl:'EARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
-    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
-    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth (MHz)'},{key:'m_tilt',lbl:'M Tilt (°)'},
+    {key:'ret',lbl:'RET (°)'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height (m)'},{key:'notes',lbl:'Notes'}
   ]},
   L1800: { gen:'4G', cls:'b4g', fields:[
     {key:'config',lbl:'Config'},{key:'enodeb_name',lbl:'eNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
     {key:'earfcn',lbl:'EARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
-    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
-    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth (MHz)'},{key:'m_tilt',lbl:'M Tilt (°)'},
+    {key:'ret',lbl:'RET (°)'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height (m)'},{key:'notes',lbl:'Notes'}
   ]},
   L2100: { gen:'4G', cls:'b4g', fields:[
     {key:'config',lbl:'Config'},{key:'enodeb_name',lbl:'eNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
     {key:'earfcn',lbl:'EARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
-    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
-    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth (MHz)'},{key:'m_tilt',lbl:'M Tilt (°)'},
+    {key:'ret',lbl:'RET (°)'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height (m)'},{key:'notes',lbl:'Notes'}
   ]},
   L2300: { gen:'4G', cls:'b4g', fields:[
     {key:'config',lbl:'Config'},{key:'enodeb_name',lbl:'eNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
     {key:'earfcn',lbl:'EARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
-    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
-    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth (MHz)'},{key:'m_tilt',lbl:'M Tilt (°)'},
+    {key:'ret',lbl:'RET (°)'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height (m)'},{key:'notes',lbl:'Notes'}
   ]},
   L2600: { gen:'4G', cls:'b4g', fields:[
     {key:'config',lbl:'Config'},{key:'enodeb_name',lbl:'eNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
     {key:'earfcn',lbl:'EARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
-    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
-    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth (MHz)'},{key:'m_tilt',lbl:'M Tilt (°)'},
+    {key:'ret',lbl:'RET (°)'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height (m)'},{key:'notes',lbl:'Notes'}
   ]},
   NR700:  { gen:'5G', cls:'b5g', fields:[
     {key:'config',lbl:'Config'},{key:'gnodeb_name',lbl:'gNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
     {key:'arfcn',lbl:'NR-ARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
-    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
-    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth (MHz)'},{key:'m_tilt',lbl:'M Tilt (°)'},
+    {key:'ret',lbl:'RET (°)'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height (m)'},{key:'notes',lbl:'Notes'}
   ]},
   NR2100: { gen:'5G', cls:'b5g', fields:[
     {key:'config',lbl:'Config'},{key:'gnodeb_name',lbl:'gNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
     {key:'arfcn',lbl:'NR-ARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
-    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
-    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth (MHz)'},{key:'m_tilt',lbl:'M Tilt (°)'},
+    {key:'ret',lbl:'RET (°)'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height (m)'},{key:'notes',lbl:'Notes'}
   ]},
   NR2600: { gen:'5G', cls:'b5g', fields:[
     {key:'config',lbl:'Config'},{key:'gnodeb_name',lbl:'gNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
     {key:'arfcn',lbl:'NR-ARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
-    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
-    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth (MHz)'},{key:'m_tilt',lbl:'M Tilt (°)'},
+    {key:'ret',lbl:'RET (°)'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height (m)'},{key:'notes',lbl:'Notes'}
   ]},
   NR3500: { gen:'5G', cls:'b5g', fields:[
     {key:'config',lbl:'Config'},{key:'gnodeb_name',lbl:'gNodeB Name'},{key:'cell_name',lbl:'Cell Name'},
     {key:'arfcn',lbl:'NR-ARFCN'},{key:'pci',lbl:'PCI'},{key:'ci',lbl:'Cell ID'},
-    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth'},{key:'m_tilt',lbl:'M Tilt'},
-    {key:'ret',lbl:'RET'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height'},{key:'notes',lbl:'Notes'}
+    {key:'tac',lbl:'TAC'},{key:'bandwidth',lbl:'Bandwidth (MHz)'},{key:'m_tilt',lbl:'M Tilt (°)'},
+    {key:'ret',lbl:'RET (°)'},{key:'azimuth',lbl:'Azimuth'},{key:'height',lbl:'Height (m)'},{key:'notes',lbl:'Notes'}
   ]}
 };
 
