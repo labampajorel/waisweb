@@ -241,10 +241,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="stat-lbl">Area</div>
       <div class="stat-rows" id="st-areas"><div class="stat-row"><span class="stat-row-lbl">—</span></div></div>
     </div>
-    <div class="stat"><div class="stat-lbl">Total Bands</div><div class="stat-val" id="st-band-total">—</div></div>
-    <div class="stat"><div class="stat-lbl">2G Bands</div><div class="stat-val v-2g" id="st-band-2g">—</div></div>
-    <div class="stat"><div class="stat-lbl">4G Bands</div><div class="stat-val v-4g" id="st-band-4g">—</div></div>
-    <div class="stat"><div class="stat-lbl">5G Bands</div><div class="stat-val v-5g" id="st-band-5g">—</div></div>
+    <div class="stat"><div class="stat-lbl">Total BTS</div><div class="stat-val" id="st-band-total">—</div></div>
+    <div class="stat"><div class="stat-lbl">2G BTS</div><div class="stat-val v-2g" id="st-band-2g">—</div></div>
+    <div class="stat"><div class="stat-lbl">4G BTS</div><div class="stat-val v-4g" id="st-band-4g">—</div></div>
+    <div class="stat"><div class="stat-lbl">5G BTS</div><div class="stat-val v-5g" id="st-band-5g">—</div></div>
   </div>
 
   <div class="toolbar">
@@ -635,6 +635,7 @@ var sortCol = 'site_id', sortDir = 1;
 var techF = 'all', statusF = 'all', searchQ = '';
 var editRow = null, detailIdx = -1;
 var cellCache = {}; // keyed by _row, stores fetched cell data
+var _detailMap = null;
 var selMode = 'admin';
 
 // â”€â”€â”€ DOM ready — everything starts here â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -682,6 +683,15 @@ document.addEventListener('DOMContentLoaded', function() {
       showApp(sess.display_name || sess.username);
     }
   } catch(e) {}
+
+  // ESC key closes the topmost open modal
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    if (document.getElementById('modal-cell').classList.contains('open'))    { closeCellModal();  return; }
+    if (document.getElementById('modal-add').classList.contains('open'))     { closeModal();      return; }
+    if (document.getElementById('modal-users').classList.contains('open'))   { closeUserMgmt();   return; }
+    if (document.getElementById('modal-detail').classList.contains('open'))  { closeDetail();     return; }
+  });
 });
 
 // â”€â”€â”€ Config (hardcoded) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1001,8 +1011,11 @@ function showDetail(idx) {
   if (!isNaN(lat) && !isNaN(lon)) {
     var mapId = 'map-' + Date.now();
     mapHtml = '<div class="det-f full" style="margin-top:4px">' +
-      '<div class="det-k" style="margin-bottom:8px">&#128205; Map View</div>' +
-      '<div id="' + mapId + '" style="width:100%;height:260px;border-radius:8px;border:1px solid #e0e0e0;z-index:1"></div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+        '<div class="det-k">&#128205; Map View</div>' +
+        '<button id="map-exp-btn-' + mapId + '" onclick="toggleMapExpand(\'' + mapId + '\')" style="font-size:11px;padding:3px 10px;border:1px solid #d0d0d0;border-radius:5px;background:#f9f9f9;color:#555;cursor:pointer;line-height:1.4">&#8599; Expand</button>' +
+      '</div>' +
+      '<div id="' + mapId + '" style="width:100%;height:260px;border-radius:8px;border:1px solid #e0e0e0;z-index:1;transition:height .3s ease"></div>' +
       '<div style="font-size:11px;color:#aaa;margin-top:5px">Coordinates: ' + lat + ', ' + lon +
       ' &nbsp;&middot;&nbsp; <a href="https://www.openstreetmap.org/?mlat=' + lat + '&mlon=' + lon + '&zoom=16" target="_blank" style="color:#23ada7">Open in OpenStreetMap &#8599;</a></div>' +
       '</div>';
@@ -1012,6 +1025,7 @@ function showDetail(idx) {
       var mapEl = document.getElementById(mapId);
       if (!mapEl || mapEl._leaflet_id) return;
       var m = L.map(mapId, { zoomControl: true, scrollWheelZoom: true }).setView([lat, lon], 14);
+      _detailMap = m;
       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
         subdomains: 'abcd', maxZoom: 19
@@ -1059,10 +1073,23 @@ function showDetail(idx) {
     '</div>';
 
   document.getElementById('det-edit-btn').style.display = (IS_ADMIN || USER_ROLE === 'editor') ? '' : 'none';
-  document.getElementById('modal-detail').classList.add('open');
+  var _detBg = document.getElementById('modal-detail');
+  _detBg.classList.add('open');
+  _detBg.querySelector('.modal').scrollTop = 0;
 }
 function closeDetail(){ document.getElementById('modal-detail').classList.remove('open'); }
 function editFromDetail(){ closeDetail(); openModal(detailIdx); }
+
+function toggleMapExpand(mapId) {
+  var mapEl = document.getElementById(mapId);
+  var btn = document.getElementById('map-exp-btn-' + mapId);
+  if (!mapEl || !btn) return;
+  var expanded = mapEl.getAttribute('data-expanded') === '1';
+  mapEl.style.height = expanded ? '260px' : '520px';
+  mapEl.setAttribute('data-expanded', expanded ? '0' : '1');
+  btn.innerHTML = expanded ? '&#8599; Expand' : '&#8601; Collapse';
+  if (_detailMap) setTimeout(function(){ _detailMap.invalidateSize(); }, 320);
+}
 
 // â”€â”€â”€ Cell Details Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var BAND_META = {
@@ -1151,7 +1178,9 @@ function openCellModal() {
   document.getElementById('cell-edit-btn').style.display = 'none';
   document.getElementById('cell-cancel-btn').style.display = 'none';
   document.getElementById('cell-save-btn').style.display = 'none';
-  document.getElementById('modal-cell').classList.add('open');
+  var _cellBg = document.getElementById('modal-cell');
+  _cellBg.classList.add('open');
+  _cellBg.querySelector('.modal').scrollTop = 0;
 
   if (!activeBands.length) {
     document.getElementById('cell-panels').innerHTML = '<div class="no-cells">No bands configured for this site.</div>';
@@ -1312,7 +1341,9 @@ function openModal(idx) {
   document.querySelectorAll('#band-checks input').forEach(function(cb){
     cb.checked = s ? isBand(s, cb.value) : false; toggleCk(cb);
   });
-  document.getElementById('modal-add').classList.add('open');
+  var _addBg = document.getElementById('modal-add');
+  _addBg.classList.add('open');
+  _addBg.querySelector('.modal').scrollTop = 0;
 }
 function closeModal(){ document.getElementById('modal-add').classList.remove('open'); }
 function toggleCk(cb){ cb.closest('.ck').classList.toggle('on', cb.checked); }
@@ -1391,7 +1422,9 @@ function syncDot(state) {
 
 // ─── User Management ─────────────────────────────────────────────────────────
 function openUserMgmt() {
-  document.getElementById('modal-users').classList.add('open');
+  var _usersBg = document.getElementById('modal-users');
+  _usersBg.classList.add('open');
+  _usersBg.querySelector('.modal').scrollTop = 0;
   document.getElementById('user-err').style.display = 'none';
   ['nu-name','nu-user','nu-pw','nu-pw2'].forEach(function(id){ document.getElementById(id).value = ''; });
   document.getElementById('nu-role').value = 'viewer';
