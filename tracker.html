@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WAIS — Project Dashboard</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2e;min-height:100vh}
+
+/* ── Topbar ── */
+.topbar{display:flex;align-items:center;justify-content:space-between;height:56px;min-height:56px;max-height:56px;padding:0 20px;background:#fff;border-bottom:1px solid #e8e8e8;gap:16px;position:sticky;top:0;z-index:100;overflow:hidden;flex-wrap:nowrap}
+.topbar-left{display:flex;align-items:center;gap:0;flex-shrink:0;height:100%;min-width:0}
+.topbar-logo{display:block;max-height:36px;width:auto;flex-shrink:0}
+.hdr-nav{display:flex;align-items:center;gap:2px;margin-left:8px;padding-left:12px;border-left:1px solid #e8e8e8;flex-wrap:nowrap}
+.nav-link{font-size:13px;font-weight:600;color:#888;text-decoration:none;padding:6px 14px;border-radius:7px;transition:all .15s;white-space:nowrap;background:transparent;letter-spacing:.01em}
+.nav-link:hover{color:#1a1a2e;background:#f0f0f0}
+.nav-link.active{color:#1a1a2e;background:#f0f0f0;position:relative}
+.nav-link.active::after{content:'';position:absolute;bottom:2px;left:14px;right:14px;height:2px;background:#23ada7;border-radius:2px}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:nowrap;white-space:nowrap}
+.topbar-btn{height:32px;padding:0 12px;font-size:12px;font-weight:500;border:1px solid #d0d0d0;border-radius:7px;background:#fff;color:#555;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center}
+.topbar-btn:hover{background:#f5f5f5;color:#1a1a2e}
+.sync-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:#888}
+.dot{width:8px;height:8px;border-radius:50%;background:#639922;flex-shrink:0}
+.dot.spin{background:#BA7517;animation:pulse 1s infinite}
+.dot.err{background:#E24B4A}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Layout ── */
+.page{max-width:1300px;margin:0 auto;padding:1.5rem}
+.section-label{font-size:11px;font-weight:600;color:#aaa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+
+/* ── KPI cards ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
+.kpi{background:#fff;border:1px solid #e8e8e8;border-radius:10px;padding:14px 16px}
+.kpi-label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.kpi-val{font-size:28px;font-weight:700;line-height:1}
+.kpi-sub{font-size:11px;color:#aaa;margin-top:4px}
+.kpi-bar{height:4px;background:#e8e8e8;border-radius:2px;overflow:hidden;margin-top:8px}
+.kpi-bar-fill{height:100%;border-radius:2px}
+.v-onaired{color:#2E7D32}
+.v-unlocked{color:#185FA5}
+.v-ongoing{color:#BA7517}
+.v-descoped{color:#A32D2D}
+
+/* ── Cards ── */
+.card{background:#fff;border:1px solid #e8e8e8;border-radius:10px;overflow:hidden}
+.card-head{padding:12px 16px;border-bottom:1px solid #f0f0f0}
+.card-title{font-size:12px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.05em}
+.card-body{padding:14px 16px}
+.card-divider{border:none;border-top:1px solid #f0f0f0;margin:12px 0}
+
+/* ── Project table ── */
+.proj-table-wrap{overflow-y:auto;max-height:340px}
+.proj-table{width:100%;border-collapse:collapse;font-size:12px}
+.proj-table thead th{position:sticky;top:0;background:#fafafa;padding:8px 10px;text-align:center;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #eee;white-space:nowrap;z-index:1}
+.proj-table thead th:first-child{padding-left:16px;text-align:left}
+.proj-table thead th:last-child{padding-right:16px}
+.proj-table tbody td{padding:8px 10px;border-bottom:1px solid #f5f5f5;vertical-align:middle;text-align:center}
+.proj-table tbody td:first-child{padding-left:16px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.proj-table tbody td:last-child{padding-right:16px}
+.proj-table tbody tr:last-child td{border-bottom:none}
+.proj-table tbody tr:hover{background:#f9fffe}
+.num{text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
+.c-done{color:#2E7D32}
+.c-pending{color:#888}
+.c-prewrks{color:#BA7517}
+.c-descoped{color:#A32D2D}
+.c-pct{font-size:11px;color:#aaa;text-align:center;white-space:nowrap}
+.proj-track{width:80px;height:5px;background:#e8e8e8;border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle}
+.proj-fill{height:100%;border-radius:3px;background:#23ada7}
+
+/* ── Area group headers ── */
+.area-group-hdr{display:flex;align-items:center;gap:8px;padding:8px 4px;cursor:pointer;user-select:none;border-bottom:1px solid #f0f0f0;margin-bottom:10px;margin-top:4px}
+.area-group-hdr:first-child{margin-top:0}
+.area-group-title{font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.05em}
+.area-group-summary{font-size:10px;font-weight:400;color:#aaa;margin-left:4px}
+.area-group-chevron{font-size:10px;color:#aaa;transition:transform .2s;flex-shrink:0}
+.area-group-chevron.collapsed{transform:rotate(-90deg)}
+.area-group-body{margin-bottom:12px}
+.area-group-body.collapsed{display:none}
+.prog-group-hdr{background:#f7f7f7;cursor:pointer;user-select:none}
+.prog-group-hdr:hover{background:#f0f0f0}
+.prog-group-hdr td{padding:9px 10px;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e8e8e8}
+.prog-group-hdr td:first-child{padding-left:16px}
+.prog-chevron{display:inline-block;margin-right:8px;transition:transform .2s;font-size:10px}
+.prog-chevron.collapsed{transform:rotate(-90deg)}
+.prog-summary{font-size:10px;font-weight:400;color:#aaa;margin-left:8px;text-transform:none;letter-spacing:0}
+.prog-group-row{transition:opacity .15s}
+.table-legend{display:flex;gap:14px;padding:8px 16px;border-top:1px solid #f0f0f0;font-size:10px;color:#aaa}
+
+/* ── Horizontal bar charts ── */
+.bar-list{display:flex;flex-direction:column;gap:7px}
+.bar-row{display:flex;align-items:center;gap:8px}
+.bar-label{font-size:11px;color:#555;width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;height:7px;background:#f0f0f0;border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px}
+.bar-val{font-size:11px;color:#888;width:32px;text-align:right;flex-shrink:0}
+
+/* ── Area cards ── */
+.area-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.area-card{background:#fafafa;border:1px solid #eee;border-radius:10px;padding:16px 14px;text-align:center}
+.area-name{font-size:11px;color:#aaa;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.area-total{font-size:26px;font-weight:700;color:#1a1a2e;margin-bottom:12px}
+.area-mini-bars{display:flex;flex-direction:column;gap:6px}
+.mini-row{display:flex;align-items:center;gap:6px}
+.mini-lbl{font-size:9px;font-weight:600;width:58px;flex-shrink:0;text-align:left;white-space:nowrap}
+.mini-track{flex:1;height:7px;background:#e8e8e8;border-radius:4px;overflow:hidden}
+.mini-fill{height:100%;border-radius:4px}
+.mini-val{font-size:10px;color:#aaa;width:28px;text-align:right;flex-shrink:0}
+.area-legend{display:flex;gap:12px;margin-top:10px;flex-wrap:wrap;font-size:10px;color:#aaa}
+.leg-item{display:flex;align-items:center;gap:4px}
+.leg-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+
+/* ── Site table ── */
+.filter-bar{display:flex;gap:6px;flex-wrap:wrap}
+.fb{font-size:11px;padding:4px 12px;border-radius:999px;border:1px solid #d0d0d0;background:#fff;color:#555;cursor:pointer;font-weight:500;transition:all .15s;white-space:nowrap}
+.fb.on{background:#23ada7;border-color:#23ada7;color:#fff}
+.site-table-wrap{overflow-x:auto;overflow-y:auto;max-height:320px;margin-top:12px}
+.site-table{width:100%;border-collapse:collapse;font-size:12px;min-width:560px}
+.site-table thead th{position:sticky;top:0;background:#fafafa;padding:8px 10px;text-align:left;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #eee;white-space:nowrap;z-index:1}
+.site-table tbody td{padding:8px 10px;border-bottom:1px solid #f5f5f5;vertical-align:middle}
+.site-table tbody tr:last-child td{border-bottom:none}
+.site-table tbody tr:hover{background:#f9fffe}
+.sid{font-family:monospace;font-weight:600;color:#23ada7;font-size:12px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap}
+.b-onaired{background:#EAF3DE;color:#2E7D32}
+.b-unlocked{background:#E6F1FB;color:#185FA5}
+.b-ongoing{background:#FFF3E0;color:#E65100}
+.b-descoped{background:#FEECEC;color:#A32D2D}
+.b-partial{background:#EEEDFE;color:#3C3489}
+.b-other{background:#f0f0f0;color:#555}
+
+/* ── Row layout ── */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.25rem}
+
+/* ── Loading skeleton ── */
+.skel{height:12px;border-radius:4px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;display:inline-block;width:100%}
+.skel-sm{width:50%}.skel-xs{width:30%}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transition:opacity .3s;z-index:9999;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+#toast.terr{background:#A32D2D}
+
+@media(max-width:900px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .area-grid{grid-template-columns:repeat(3,1fr)}
+  .row2{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .kpi-grid{grid-template-columns:1fr 1fr}
+  .area-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <img class="topbar-logo" src="waislogo2.png" alt="WAIS">
+    <nav class="hdr-nav">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link active" href="tracker.html">Project Dashboard</a>
+      <a class="nav-link" href="map.html">Site Tracker</a>
+      <a class="nav-link" href="download.html">Download</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <div class="sync-pill"><div class="dot" id="sync-dot"></div><span id="sync-lbl">Loading…</span></div>
+    <span id="welcome-msg" style="font-size:12px;color:#888"></span>
+    <button onclick="refreshData()" class="topbar-btn">&#8635; Refresh</button>
+    <button onclick="doLogout()" class="topbar-btn">Logout</button>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- KPI row -->
+  <div class="section-label">Overall progress</div>
+  <div class="kpi-grid" id="kpi-grid">
+    <div class="kpi"><div class="kpi-label">On-Aired</div><div class="kpi-val v-onaired" id="k-onaired">—</div><div class="kpi-sub" id="k-onaired-pct">—</div><div class="kpi-bar"><div class="kpi-bar-fill" id="k-onaired-bar" style="background:#2E7D32;width:0%"></div></div></div>
+    <div class="kpi"><div class="kpi-label">Unlocked</div><div class="kpi-val v-unlocked" id="k-unlocked">—</div><div class="kpi-sub" id="k-unlocked-pct">—</div><div class="kpi-bar"><div class="kpi-bar-fill" id="k-unlocked-bar" style="background:#185FA5;width:0%"></div></div></div>
+    <div class="kpi"><div class="kpi-label">Ongoing</div><div class="kpi-val v-ongoing" id="k-ongoing">—</div><div class="kpi-sub" id="k-ongoing-pct">—</div><div class="kpi-bar"><div class="kpi-bar-fill" id="k-ongoing-bar" style="background:#BA7517;width:0%"></div></div></div>
+    <div class="kpi"><div class="kpi-label">Descoped</div><div class="kpi-val v-descoped" id="k-descoped">—</div><div class="kpi-sub" id="k-descoped-pct">—</div><div class="kpi-bar"><div class="kpi-bar-fill" id="k-descoped-bar" style="background:#A32D2D;width:0%"></div></div></div>
+  </div>
+
+  <!-- All projects -->
+  <div class="section-label">All projects</div>
+  <div class="card" style="margin-bottom:1.25rem">
+    <div style="padding:10px 16px;border-bottom:1px solid #f0f0f0;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <div id="proj-area-filters" style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="fb on" data-area="all">All Areas</button>
+        <button class="fb" data-area="MM">Metro Manila</button>
+        <button class="fb" data-area="NL">North Luzon</button>
+        <button class="fb" data-area="SL">South Luzon</button>
+        <button class="fb" data-area="VIS">Visayas</button>
+        <button class="fb" data-area="MIN">Mindanao</button>
+      </div>
+      <div style="width:1px;height:20px;background:#e8e8e8;flex-shrink:0;margin:0 2px"></div>
+      <div id="proj-vendor-filters" style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="fb on" data-vendor="all">All Vendors</button>
+        <button class="fb" data-vendor="HUAWEI">Huawei</button>
+        <button class="fb" data-vendor="ERICSSON">Ericsson</button>
+      </div>
+    </div>
+    <div class="proj-table-wrap">
+      <table class="proj-table">
+        <thead>
+          <tr>
+            <th>Project</th>
+            <th class="num">Total</th>
+            <th class="num">Done</th>
+            <th class="num">Pending Implem.</th>
+            <th class="num">Pending Preworks</th>
+            <th class="num">Descoped</th>
+            <th style="min-width:90px">Completion</th>
+            <th class="num">%</th>
+          </tr>
+        </thead>
+        <tbody id="proj-tbody">
+          <tr><td colspan="8" style="padding:2rem;text-align:center;color:#aaa">Loading projects…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Area breakdown -->
+  <div class="section-label">Area breakdown</div>
+  <div class="card" style="margin-bottom:1.25rem">
+    <div class="card-body">
+      <div id="area-grid"></div>
+    </div>
+  </div>
+
+  <!-- Site list — full width -->
+  <div class="card" style="margin-bottom:1.25rem">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div class="card-title">Site list</div>
+        <div class="filter-bar" id="status-filters">
+          <button class="fb on" data-v="all">All</button>
+          <button class="fb" data-v="ONAIRED">On-Aired</button>
+          <button class="fb" data-v="ONGOING">Ongoing</button>
+          <button class="fb" data-v="UNLOCKED">Unlocked</button>
+          <button class="fb" data-v="DESCOPED">Descoped</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:7px;padding:0 10px;height:32px;margin-top:10px">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5.5" stroke="#aaa" stroke-width="1.3"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.3" stroke-linecap="round"/></svg>
+        <input id="site-search" placeholder="Search Site ID or Name…" oninput="onSiteSearch(this.value)" style="border:none;outline:none;background:transparent;font-size:12px;color:#1a1a2e;width:100%;font-family:inherit"/>
+        <button id="site-search-clear" onclick="clearSiteSearch()" style="display:none;border:none;background:none;cursor:pointer;color:#aaa;font-size:14px;line-height:1;padding:0">&#215;</button>
+      </div>
+    </div>
+    <div class="card-body" style="padding-top:0">
+      <div class="site-table-wrap">
+        <table class="site-table">
+          <thead>
+            <tr>
+              <th>Site ID</th>
+              <th>Site Name</th>
+              <th>Project</th>
+              <th>Area</th>
+              <th>Scope / Config</th>
+              <th>Vendor</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="site-tbody">
+            <tr><td colspan="7" style="padding:2rem;text-align:center;color:#aaa">Loading sites…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="site-count-lbl" style="font-size:10px;color:#aaa;margin-top:8px;text-align:right"></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── Auth guard ───────────────────────────────────────────────────────────────
+(function(){
+  var sess = null;
+  try { sess = JSON.parse(sessionStorage.getItem('tsdb_session') || 'null'); } catch(e) {}
+  if (!sess || !sess.username) {
+    document.body.innerHTML = '';
+    window.location.replace('index.html');
+    return;
+  }
+  document.getElementById('welcome-msg').textContent = 'Welcome, ' + (sess.display_name || sess.username) + '!';
+})();
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+var GS_URL    = 'https://script.google.com/macros/s/AKfycbzdNEzS3t6mnw7wWBxm3UFmHUtz39PWvmpS2BnSnRyvsOuhk6LS1H-V-58nsx25BwEenw/exec';
+var CACHE_KEY = 'tsdb_tracker_cache';
+var CACHE_TTL = 30 * 60 * 1000;
+var AREAS     = ['MM','NL','SL','VIS','MIN'];
+var AREA_NAMES = {MM:'Metro Manila', NL:'North Luzon', SL:'South Luzon', VIS:'Visayas', MIN:'Mindanao'};
+
+// ─── State ────────────────────────────────────────────────────────────────────
+var ALL = [];
+var _statusFilter = 'all';
+var _siteSearch = '';
+var _projAreaFilter = 'all';
+var _projVendorFilter = 'all';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function normStr(v){ return String(v||'').trim().toLowerCase(); }
+function isTrue(v){ return v===true||v===1||normStr(v)==='true'||normStr(v)==='1'; }
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtN(n){ return Number(n).toLocaleString(); }
+function pct(n, total){ return total ? Math.round(n/total*100) : 0; }
+
+function syncDot(state){
+  document.getElementById('sync-dot').className = 'dot'+(state==='spin'?' spin':state==='err'?' err':'');
+  document.getElementById('sync-lbl').textContent = state==='spin'?'Loading…':state==='err'?'Error':'Synced';
+}
+
+var _toastTimer;
+function showToast(msg, isErr){
+  var el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'show'+(isErr?' terr':'');
+  clearTimeout(_toastTimer); _toastTimer = setTimeout(function(){ el.className=''; }, 3500);
+}
+
+function gsGet(url, params){
+  var qs = new URLSearchParams(params).toString();
+  return fetch(qs ? url+'?'+qs : url, { redirect:'follow' }).then(function(r){
+    if (!r.ok) throw new Error('HTTP '+r.status); return r.json();
+  });
+}
+
+// ─── Status classification ────────────────────────────────────────────────────
+// Column: "Status (UL / OG)" — exact name from Tracker sheet
+function getULOG(r){ return normStr(r['Status (UL / OG)'] || ''); }
+function getHL(r){   return normStr(r['HL STATUS'] || ''); }
+
+function classifyStatus(r){
+  var ul = getULOG(r);
+  if (ul === 'onaired' || ul === 'onairedl' || ul === 'onaired') return 'ONAIRED';
+  if (ul === 'unlocked') return 'UNLOCKED';
+  if (ul === 'descoped') return 'DESCOPED';
+  if (ul === 'integrated') return 'UNLOCKED';
+  if (ul.includes('kpi')) return 'UNLOCKED';
+  if (ul === 'partially unlocked') return 'UNLOCKED';
+  if (ul === 'ongoing') return 'ONGOING';
+  return 'ONGOING';
+}
+
+function statusBadge(code){
+  switch(code){
+    case 'ONAIRED':  return '<span class="badge b-onaired">On-Aired</span>';
+    case 'UNLOCKED': return '<span class="badge b-unlocked">Unlocked</span>';
+    case 'DESCOPED': return '<span class="badge b-descoped">Descoped</span>';
+    default:         return '<span class="badge b-ongoing">Ongoing</span>';
+  }
+}
+
+// ─── Render KPIs ─────────────────────────────────────────────────────────────
+function renderKPIs(active){
+  var total = active.length;
+  var onaired  = active.filter(function(r){ return classifyStatus(r)==='ONAIRED'; }).length;
+  var unlocked = active.filter(function(r){ return classifyStatus(r)==='UNLOCKED'; }).length;
+  var ongoing  = active.filter(function(r){ return classifyStatus(r)==='ONGOING'; }).length;
+  var descoped = active.filter(function(r){ return classifyStatus(r)==='DESCOPED'; }).length;
+
+  function set(id, val, p, barId, color){
+    document.getElementById(id).textContent = fmtN(val);
+    document.getElementById(id+'-pct').textContent = p+'% of active';
+    document.getElementById(barId).style.width = p+'%';
+  }
+  set('k-onaired',  onaired,  pct(onaired,total),  'k-onaired-bar');
+  set('k-unlocked', unlocked, pct(unlocked,total), 'k-unlocked-bar');
+  set('k-ongoing',  ongoing,  pct(ongoing,total),  'k-ongoing-bar');
+  set('k-descoped', descoped, pct(descoped,total), 'k-descoped-bar');
+
+  // update section label
+  document.querySelector('.section-label').textContent = 'Overall progress · '+fmtN(total)+' active sites';
+}
+
+// ─── Render project table ─────────────────────────────────────────────────────
+var _collapsedGroups = {}; // track which groups are collapsed
+
+function renderProjects(active){
+  // Apply area and vendor filters
+  var rows = active.filter(function(r){
+    var areaOk   = _projAreaFilter === 'all' || normStr(r['AREA']||'') === normStr(_projAreaFilter);
+    var vendorOk = _projVendorFilter === 'all' || normStr(r['VENDOR']||'') === normStr(_projVendorFilter);
+    return areaOk && vendorOk;
+  });
+
+  // Aggregate by project, keeping program info
+  var projects = {};
+  rows.forEach(function(r){
+    var p = r['PROJECT'] || '';
+    if (!p) return;
+    if (!projects[p]) projects[p] = {
+      total:0, done:0, pending:0, prewrks:0, descoped:0,
+      program: String(r['PROGRAM'] || '').trim() || 'Other'
+    };
+    projects[p].total++;
+    var hl = normStr(r['HL STATUS'] || '');
+    if (hl.includes('completed'))    projects[p].done++;
+    else if (hl === 'for preworks')  projects[p].prewrks++;
+    else if (hl === 'pending')       projects[p].pending++;
+    else if (hl === 'descoped')      projects[p].descoped++;
+    else                             projects[p].pending++;
+  });
+
+  // Group projects by program in defined order
+  var programOrder = ['New Site Rollout', 'Expansion', 'Other'];
+  var groups = {};
+  programOrder.forEach(function(g){ groups[g] = []; });
+
+  Object.keys(projects).forEach(function(name){
+    var prog = projects[name].program;
+    if (!groups[prog]) groups[prog] = [];
+    groups[prog].push(name);
+  });
+
+  // Sort each group alphabetically
+  Object.keys(groups).forEach(function(g){
+    groups[g].sort(function(a,b){ return a.localeCompare(b); });
+  });
+
+  var html = '';
+  programOrder.forEach(function(prog){
+    var names = groups[prog];
+    if (!names.length) return;
+
+    // Group totals for summary
+    var gTotal=0, gDone=0;
+    names.forEach(function(n){ gTotal+=projects[n].total; gDone+=projects[n].done; });
+    var gPct = pct(gDone, gTotal);
+    var isCollapsed = !!_collapsedGroups[prog];
+
+    // Group header row
+    html += '<tr class="prog-group-hdr" onclick="toggleGroup(\''+escHtml(prog)+'\')">' +
+      '<td colspan="8">' +
+        '<span class="prog-chevron'+(isCollapsed?' collapsed':'')+'">&#9660;</span>' +
+        escHtml(prog) +
+        '<span class="prog-summary">'+names.length+' project'+(names.length!==1?'s':'')+' · '+fmtN(gTotal)+' sites · '+gPct+'% done</span>'+
+      '</td>' +
+    '</tr>';
+
+    // Project rows
+    names.forEach(function(name){
+      var d = projects[name];
+      var p = pct(d.done, d.total);
+      html += '<tr class="prog-group-row" data-group="'+escHtml(prog)+'"'+(isCollapsed?' style="display:none"':'')+'>'+
+        '<td title="'+escHtml(name)+'" style="padding-left:28px">'+escHtml(name)+'</td>'+
+        '<td class="num">'+fmtN(d.total)+'</td>'+
+        '<td class="num c-done">'+fmtN(d.done)+'</td>'+
+        '<td class="num c-pending">'+fmtN(d.pending)+'</td>'+
+        '<td class="num c-prewrks">'+fmtN(d.prewrks)+'</td>'+
+        '<td class="num c-descoped">'+fmtN(d.descoped)+'</td>'+
+        '<td><div class="proj-track"><div class="proj-fill" style="width:'+p+'%"></div></div></td>'+
+        '<td class="c-pct">'+p+'%</td>'+
+      '</tr>';
+    });
+  });
+
+  document.getElementById('proj-tbody').innerHTML = html ||
+    '<tr><td colspan="8" style="padding:2rem;text-align:center;color:#aaa">No data</td></tr>';
+}
+
+function toggleGroup(prog){
+  _collapsedGroups[prog] = !_collapsedGroups[prog];
+  var isCollapsed = _collapsedGroups[prog];
+
+  // Toggle chevron
+  document.querySelectorAll('.prog-group-hdr').forEach(function(hdr){
+    if(hdr.querySelector('td') && hdr.querySelector('td').textContent.includes(prog)){
+      var chev = hdr.querySelector('.prog-chevron');
+      if(chev) chev.classList.toggle('collapsed', isCollapsed);
+    }
+  });
+
+  // Toggle rows
+  document.querySelectorAll('.prog-group-row[data-group="'+prog+'"]').forEach(function(row){
+    row.style.display = isCollapsed ? 'none' : '';
+  });
+}
+
+// ─── Render area breakdown ────────────────────────────────────────────────────
+var _collapsedAreaGroups = {};
+
+function renderAreas(active){
+  var programOrder = ['New Site Rollout', 'Expansion', 'Other'];
+
+  // Build data[program][area]
+  var data = {};
+  programOrder.forEach(function(prog){
+    data[prog] = {};
+    AREAS.forEach(function(a){
+      data[prog][a] = {total:0, done:0, ongoing:0, descoped:0};
+    });
+  });
+
+  active.forEach(function(r){
+    var area = String(r['AREA']||'').trim();
+    var prog = String(r['PROGRAM']||'').trim() || 'Other';
+    if (!data[prog]) { data[prog] = {}; AREAS.forEach(function(a){ data[prog][a]={total:0,done:0,ongoing:0,descoped:0}; }); }
+    if (!data[prog][area]) return;
+    data[prog][area].total++;
+    var s = classifyStatus(r);
+    if (s==='ONAIRED'||s==='UNLOCKED') data[prog][area].done++;
+    else if (s==='DESCOPED')           data[prog][area].descoped++;
+    else                               data[prog][area].ongoing++;
+  });
+
+  var html = '';
+  programOrder.forEach(function(prog){
+    // Skip program if it has no data at all
+    var progTotal = AREAS.reduce(function(sum,a){ return sum+(data[prog][a]?data[prog][a].total:0); },0);
+    if (!progTotal) return;
+
+    var progDone = AREAS.reduce(function(sum,a){ return sum+(data[prog][a]?data[prog][a].done:0); },0);
+    var progPct  = pct(progDone, progTotal);
+    var isCollapsed = !!_collapsedAreaGroups[prog];
+    var safeId = prog.replace(/\s+/g,'-');
+
+    html +=
+      '<div class="area-group-hdr" onclick="toggleAreaGroup(\''+escHtml(prog)+'\')">' +
+        '<span class="area-group-chevron'+(isCollapsed?' collapsed':'')+'" id="achev-'+safeId+'">&#9660;</span>'+
+        '<span class="area-group-title">'+escHtml(prog)+'</span>'+
+        '<span class="area-group-summary">'+fmtN(progTotal)+' sites · '+progPct+'% on-air/unlocked</span>'+
+      '</div>'+
+      '<div class="area-group-body'+(isCollapsed?' collapsed':'')+'" id="abody-'+safeId+'">'+
+        '<div class="area-grid">'+
+          AREAS.map(function(a){
+            var d = data[prog][a];
+            var t = d.total || 1;
+            return '<div class="area-card">'+
+              '<div class="area-name">'+AREA_NAMES[a]+'</div>'+
+              '<div class="area-total">'+fmtN(d.total)+'</div>'+
+              '<div class="area-mini-bars">'+
+                '<div class="mini-row"><div class="mini-lbl" style="color:#2E7D32">RFS/Unlocked</div><div class="mini-track"><div class="mini-fill" style="width:'+pct(d.done,t)+'%;background:#2E7D32"></div></div><div class="mini-val">'+d.done+'</div></div>'+
+                '<div class="mini-row"><div class="mini-lbl" style="color:#BA7517">Ongoing</div><div class="mini-track"><div class="mini-fill" style="width:'+pct(d.ongoing,t)+'%;background:#BA7517"></div></div><div class="mini-val">'+d.ongoing+'</div></div>'+
+                '<div class="mini-row"><div class="mini-lbl" style="color:#A32D2D">Descoped</div><div class="mini-track"><div class="mini-fill" style="width:'+pct(d.descoped,t)+'%;background:#A32D2D"></div></div><div class="mini-val">'+d.descoped+'</div></div>'+
+              '</div>'+
+            '</div>';
+          }).join('')+
+        '</div>'+
+      '</div>';
+  });
+
+  document.getElementById('area-grid').innerHTML = html || '<div style="color:#aaa;font-size:12px;padding:1rem 0">No data</div>';
+}
+
+function toggleAreaGroup(prog){
+  _collapsedAreaGroups[prog] = !_collapsedAreaGroups[prog];
+  var safeId = prog.replace(/\s+/g,'-');
+  var chev = document.getElementById('achev-'+safeId);
+  var body = document.getElementById('abody-'+safeId);
+  if(chev) chev.classList.toggle('collapsed', _collapsedAreaGroups[prog]);
+  if(body) body.classList.toggle('collapsed', _collapsedAreaGroups[prog]);
+}
+
+// ─── Render vendor bars ───────────────────────────────────────────────────────
+function renderVendors(active){
+  var vendors = {};
+  active.forEach(function(r){
+    var v = String(r['VENDOR'] || '').trim();
+    if (!v) return;
+    vendors[v] = (vendors[v]||0) + 1;
+  });
+
+  var sorted = Object.keys(vendors).sort(function(a,b){ return vendors[b]-vendors[a]; });
+  var maxV = sorted.length ? vendors[sorted[0]] : 1;
+  var colors = ['#378ADD','#7F77DD','#888780','#23ada7','#BA7517'];
+
+  var vendorHtml = sorted.map(function(v, i){
+    return '<div class="bar-row">'+
+      '<div class="bar-label">'+escHtml(v)+'</div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+pct(vendors[v],maxV)+'%;background:'+colors[i%colors.length]+'"></div></div>'+
+      '<div class="bar-val">'+fmtN(vendors[v])+'</div>'+
+    '</div>';
+  }).join('');
+  document.getElementById('vendor-bars').innerHTML = vendorHtml;
+
+  // HL Status bars
+  var hl = {};
+  active.forEach(function(r){
+    var h = String(r['HL STATUS'] || '').trim();
+    if (!h) return;
+    hl[h] = (hl[h]||0)+1;
+  });
+  var hlSorted = Object.keys(hl).sort(function(a,b){ return hl[b]-hl[a]; });
+  var maxHL = hlSorted.length ? hl[hlSorted[0]] : 1;
+  var hlColors = {
+    'Completed':'#2E7D32','For Preworks':'#BA7517','Pending':'#888780',
+    'Descoped':'#E24B4A','2025 Completed':'#5DCAA5','For Replacement':'#AFA9EC'
+  };
+
+  var hlHtml = hlSorted.map(function(h){
+    var col = hlColors[h] || '#aaa';
+    return '<div class="bar-row">'+
+      '<div class="bar-label">'+escHtml(h)+'</div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+pct(hl[h],maxHL)+'%;background:'+col+'"></div></div>'+
+      '<div class="bar-val">'+fmtN(hl[h])+'</div>'+
+    '</div>';
+  }).join('');
+  document.getElementById('hl-bars').innerHTML = hlHtml;
+}
+
+// ─── Render site table ────────────────────────────────────────────────────────
+function getSiteId(r)  { return String(r['SITE ID']  || r['SITE_ID']  || r['SiteID']  || ''); }
+function getSiteName(r){ return String(r['SITE NAME']|| r['SITE_NAME']|| r['SiteName']|| ''); }
+function getProject(r) { return String(r['PROJECT']  || r['Project']  || ''); }
+function getArea(r)    { return String(r['AREA']     || r['Area']     || ''); }
+
+function renderSites(active){
+  var q = _siteSearch.toLowerCase();
+  var filtered = active.filter(function(r){
+    var statusOk = _statusFilter === 'all' || classifyStatus(r) === _statusFilter;
+    var searchOk = !q ||
+      getSiteId(r).toLowerCase().includes(q) ||
+      getSiteName(r).toLowerCase().includes(q);
+    return statusOk && searchOk;
+  });
+
+  // Sort: New Site Rollout first, then Expansion, then others — then alphabetically by site ID within each group
+  var progOrder = {'New Site Rollout': 0, 'Expansion': 1};
+  filtered.sort(function(a, b){
+    var pa = progOrder[String(a['PROGRAM']||'').trim()];
+    var pb = progOrder[String(b['PROGRAM']||'').trim()];
+    if (pa === undefined) pa = 2;
+    if (pb === undefined) pb = 2;
+    if (pa !== pb) return pa - pb;
+    return getSiteId(a).localeCompare(getSiteId(b));
+  });
+
+  var html = filtered.slice(0, 200).map(function(r){
+    var code = classifyStatus(r);
+    var scope  = String(r['SCOPE/CONFIG'] || r['SCOPE'] || r['Scope/Config'] || '—');
+    var vendor = String(r['VENDOR'] || r['Vendor'] || '—');
+    return '<tr>'+
+      '<td class="sid">'+escHtml(getSiteId(r))+'</td>'+
+      '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escHtml(getSiteName(r))+'">'+escHtml(getSiteName(r)||'—')+'</td>'+
+      '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(getProject(r)||'—')+'</td>'+
+      '<td>'+escHtml(getArea(r)||'—')+'</td>'+
+      '<td>'+escHtml(scope)+'</td>'+
+      '<td>'+escHtml(vendor)+'</td>'+
+      '<td>'+statusBadge(code)+'</td>'+
+    '</tr>';
+  }).join('');
+
+  document.getElementById('site-tbody').innerHTML = html ||
+    '<tr><td colspan="7" style="padding:2rem;text-align:center;color:#aaa">No sites found</td></tr>';
+  document.getElementById('site-count-lbl').textContent =
+    (filtered.length > 200 ? 'Showing 200 of '+fmtN(filtered.length) : fmtN(filtered.length))+' site'+(filtered.length!==1?'s':'');
+}
+
+// ─── Get active rows — handles column name variations ─────────────────────────
+function getActive(){
+  return ALL.filter(function(r){
+    // try all likely key variants for the status column
+    var s = normStr(
+      r['STATUS (Active, Inactive)'] ||
+      r['STATUS\n(Active, Inactive)'] ||
+      r['STATUS'] ||
+      r['Status'] ||
+      Object.values(r)[0] || ''  // fallback: first column
+    );
+    return s !== 'inactive';
+  });
+}
+
+// ─── Site search ─────────────────────────────────────────────────────────────
+function onSiteSearch(q){
+  _siteSearch = q;
+  document.getElementById('site-search-clear').style.display = q ? 'block' : 'none';
+  renderSites(getActive());
+}
+function clearSiteSearch(){
+  _siteSearch = '';
+  document.getElementById('site-search').value = '';
+  document.getElementById('site-search-clear').style.display = 'none';
+  renderSites(getActive());
+}
+
+// ─── Project area + vendor filters ───────────────────────────────────────────
+document.getElementById('proj-area-filters').addEventListener('click', function(e){
+  var btn = e.target.closest('.fb');
+  if (!btn) return;
+  document.querySelectorAll('#proj-area-filters .fb').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  _projAreaFilter = btn.dataset.area;
+  renderProjects(getActive());
+});
+
+document.getElementById('proj-vendor-filters').addEventListener('click', function(e){
+  var btn = e.target.closest('.fb');
+  if (!btn) return;
+  document.querySelectorAll('#proj-vendor-filters .fb').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  _projVendorFilter = btn.dataset.vendor;
+  renderProjects(getActive());
+});
+
+// ─── Filter buttons ───────────────────────────────────────────────────────────
+document.getElementById('status-filters').addEventListener('click', function(e){
+  var btn = e.target.closest('.fb');
+  if (!btn) return;
+  document.querySelectorAll('#status-filters .fb').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  _statusFilter = btn.dataset.v;
+  renderSites(getActive());
+});
+
+// ─── Skeleton loaders ─────────────────────────────────────────────────────────
+function showProjSkeleton(){
+  var skRow = '<tr>'+'<td><div class="skel"></div></td>'+
+    Array(6).fill('<td><div class="skel skel-xs" style="margin:0 auto"></div></td>').join('')+
+    '<td></td>'+'</tr>';
+  document.getElementById('proj-tbody').innerHTML = Array(8).fill(skRow).join('');
+}
+
+function showSiteSkeleton(){
+  var skRow = '<tr>'+Array(7).fill('<td><div class="skel"></div></td>').join('')+'</tr>';
+  document.getElementById('site-tbody').innerHTML = Array(10).fill(skRow).join('');
+}
+
+// ─── Load data ────────────────────────────────────────────────────────────────
+async function loadData(forceRefresh){
+
+  // Check cache FIRST — before showing any loading state
+  if (!forceRefresh) {
+    try {
+      var cached = JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
+      if (cached && cached.ts && (Date.now()-cached.ts)<CACHE_TTL && cached.rows && cached.rows.length){
+        ALL = cached.rows;
+        var age = Math.round((Date.now()-cached.ts)/60000);
+        syncDot('ok');
+        document.getElementById('sync-lbl').textContent = 'Cached'+(age>0?' · '+age+'m ago':'');
+        renderAll();
+        return;
+      }
+    } catch(e){}
+  }
+
+  // Only reach here if cache is stale or forced — show loading state + skeletons
+  syncDot('spin');
+  showProjSkeleton();
+  showSiteSkeleton();
+
+  try {
+    var res = await gsGet(GS_URL, {action:'getTracker'});
+    if (res.error) throw new Error(res.error);
+    ALL = res.rows || [];
+    try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ts:Date.now(),rows:ALL})); }catch(e){}
+    syncDot('ok');
+    renderAll();
+  } catch(e){
+    syncDot('err');
+    showToast('Load error: '+e.message, true);
+  }
+}
+
+function refreshData(){
+  localStorage.removeItem(CACHE_KEY);
+  loadData(true);
+}
+
+function renderAll(){
+  var active = getActive();
+  renderKPIs(active);
+  renderProjects(active);
+  renderAreas(active);
+  renderSites(active);
+}
+
+// ─── Logout ───────────────────────────────────────────────────────────────────
+function doLogout(){
+  if (!confirm('Log out?')) return;
+  sessionStorage.removeItem('tsdb_session');
+  window.location.replace('index.html');
+}
+
+// ─── Boot — synchronous cache read so page renders instantly ──────────────────
+(function(){
+  try {
+    var cached = JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
+    if (cached && cached.ts && (Date.now()-cached.ts)<CACHE_TTL && cached.rows && cached.rows.length){
+      ALL = cached.rows;
+      var age = Math.round((Date.now()-cached.ts)/60000);
+      syncDot('ok');
+      document.getElementById('sync-lbl').textContent = 'Cached'+(age>0?' · '+age+'m ago':'');
+      renderAll();
+      return; // no network call needed
+    }
+  } catch(e){}
+  loadData(); // cache missing or stale — fetch from network
+})();
+</script>
+</body>
+</html>
