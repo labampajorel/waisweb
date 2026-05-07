@@ -35,6 +35,7 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0
 .gps-btn{border-color:#1E88E5;color:#1565C0;background:#f0f7ff}
 .gps-btn:hover{background:#e0f0ff}
 .gps-btn.located{background:#e0f0ff;border-color:#1E88E5;color:#1565C0;font-weight:600}
+.nearest-active{background:#FFF3E0;border-color:#E65100;color:#E65100;font-weight:600}
 .legend{display:flex;gap:12px;align-items:center;font-size:11px;color:#666;flex-wrap:wrap;margin-left:4px}
 .leg{display:flex;align-items:center;gap:5px}
 .leg-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
@@ -52,6 +53,9 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0
 .kmz-rm-btn:hover{color:#c00}
 .site-label{background:transparent;border:none;box-shadow:none;padding:0;font-size:9px;font-weight:700;font-family:'Segoe UI',sans-serif;color:#1a1a2e;white-space:nowrap;pointer-events:none}
 .site-label::before{display:none}
+.nearest-label .leaflet-popup-content-wrapper{background:#fff;border:1.5px solid #E65100;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);padding:0}
+.nearest-label .leaflet-popup-content{margin:8px 12px}
+.nearest-label .leaflet-popup-tip-container{display:none}
 </style>
 </head>
 <body>
@@ -87,6 +91,8 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0
     <button class="tbtn" id="btn-satellite" onclick="setTile('satellite')">Satellite</button>
     <div class="strip-sep"></div>
     <button class="tbtn gps-btn" id="gps-btn" onclick="locateMe()">&#127757; My Location</button>
+    <div class="strip-sep"></div>
+    <button class="tbtn" id="nearest-btn" onclick="toggleNearest()" title="Show nearest site from your location">&#128279; Nearest Site</button>
     <div class="strip-sep"></div>
     <div class="legend">
       <span class="leg"><span class="leg-dot" style="background:#2E7D32"></span>On-Air</span>
@@ -380,6 +386,9 @@ function startTracking(){
         btn.innerHTML='&#128309; Stop Tracking'; btn.disabled=false; btn.classList.add('located');
         _isTracking=true; _firstFix=false;
       }
+
+      // Update nearest site line on every fix
+      updateNearest(lat, lon);
     },
     function(err){
       var msg=err.code===1?'Location access denied.':err.code===3?'Request timed out.':'Location unavailable.';
@@ -395,6 +404,11 @@ function stopTracking(){
   _isTracking=false; _firstFix=true;
   if(_gpsMarker){map.removeLayer(_gpsMarker);_gpsMarker=null;}
   if(_gpsCircle){map.removeLayer(_gpsCircle);_gpsCircle=null;}
+  // Also clear nearest site when tracking stops
+  _nearestEnabled=false;
+  clearNearest();
+  var nb=document.getElementById('nearest-btn');
+  if(nb){ nb.classList.remove('nearest-active'); nb.innerHTML='&#128279; Nearest Site'; }
   var btn=document.getElementById('gps-btn');
   btn.innerHTML='&#127757; My Location'; btn.disabled=false; btn.classList.remove('located');
   showToast('Location tracking stopped');
@@ -467,7 +481,116 @@ async function parseAndAddKmz(name,source){
 function toggleKmz(lid,vis){if(!_kmzLayers[lid])return;if(vis)_kmzLayers[lid].layer.addTo(map);else _kmzLayers[lid].layer.remove();}
 function removeKmz(lid){if(!_kmzLayers[lid])return;try{_kmzLayers[lid].layer.remove();}catch(e){}delete _kmzLayers[lid];var r=document.getElementById('kmzrow-'+lid);if(r)r.remove();}
 
-// Stop tracking if user navigates away
+// ─── Nearest site ─────────────────────────────────────────────────────────────
+var _nearestEnabled = false;
+var _nearestLine    = null;
+var _nearestMarkerHighlight = null;
+var _nearestPopup   = null;
+
+function toggleNearest(){
+  _nearestEnabled = !_nearestEnabled;
+  var btn = document.getElementById('nearest-btn');
+  if(_nearestEnabled){
+    btn.classList.add('nearest-active');
+    btn.innerHTML = '&#128279; Nearest Site';
+    // If we already have a GPS fix, draw immediately
+    if(_gpsMarker){
+      var ll = _gpsMarker.getLatLng();
+      updateNearest(ll.lat, ll.lng);
+    } else {
+      showToast('Enable My Location first to use Nearest Site', true);
+      _nearestEnabled = false;
+      btn.classList.remove('nearest-active');
+    }
+  } else {
+    btn.classList.remove('nearest-active');
+    btn.innerHTML = '&#128279; Nearest Site';
+    clearNearest();
+  }
+}
+
+function haversineKm(lat1,lon1,lat2,lon2){
+  var R=6371;
+  var dLat=(lat2-lat1)*Math.PI/180;
+  var dLon=(lon2-lon1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+
+        Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+        Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function updateNearest(userLat, userLon){
+  if(!_nearestEnabled) return;
+
+  // Find closest visible site
+  var best = null, bestDist = Infinity;
+  _markers.forEach(function(m){
+    if(!m.added) return;
+    var ll = m.marker.getLatLng();
+    var d = haversineKm(userLat, userLon, ll.lat, ll.lng);
+    if(d < bestDist){ bestDist = d; best = m; }
+  });
+  if(!best) return;
+
+  var sLat = best.marker.getLatLng().lat;
+  var sLon = best.marker.getLatLng().lng;
+  var distStr = bestDist < 1
+    ? Math.round(bestDist*1000)+' m'
+    : bestDist.toFixed(2)+' km';
+
+  // Draw / update the dashed line
+  if(_nearestLine){
+    _nearestLine.setLatLngs([[userLat,userLon],[sLat,sLon]]);
+  } else {
+    _nearestLine = L.polyline([[userLat,userLon],[sLat,sLon]],{
+      color:'#E65100', weight:2.5, opacity:0.85,
+      dashArray:'6 6', dashOffset:'0'
+    }).addTo(map);
+  }
+
+  // Highlight the nearest site with an orange ring
+  if(_nearestMarkerHighlight){
+    _nearestMarkerHighlight.setLatLng([sLat,sLon]);
+  } else {
+    _nearestMarkerHighlight = L.circleMarker([sLat,sLon],{
+      radius:10, color:'#E65100', weight:2.5,
+      fillColor:'transparent', fillOpacity:0, opacity:0.9,
+      interactive:false
+    }).addTo(map);
+  }
+
+  // Distance label at midpoint
+  var midLat = (userLat+sLat)/2;
+  var midLon = (userLon+sLon)/2;
+  if(_nearestPopup){
+    _nearestPopup.setLatLng([midLat,midLon]);
+    _nearestPopup.setContent(buildNearestLabel(best.site, distStr));
+  } else {
+    _nearestPopup = L.popup({
+      closeButton:false, autoClose:false, closeOnClick:false,
+      className:'nearest-label', offset:[0,0]
+    })
+    .setLatLng([midLat,midLon])
+    .setContent(buildNearestLabel(best.site, distStr))
+    .addTo(map);
+  }
+}
+
+function buildNearestLabel(site, distStr){
+  var onair = normStr(site.site_status)==='on-air';
+  return '<div style="font-size:11px;font-family:\'Segoe UI\',sans-serif;line-height:1.6;text-align:center">'+
+    '<div style="font-weight:700;color:#E65100">&#128279; '+distStr+'</div>'+
+    '<div style="font-weight:600;color:#1a1a2e">'+escHtml(site.site_id)+'</div>'+
+    '<div style="color:#888;font-size:10px">'+escHtml(site.site_name||'')+'</div>'+
+    '<div style="font-size:10px">'+(onair?'<span style="color:#2E7D32">&#9679; On-Air</span>':'<span style="color:#aaa">&#9679; Inactive</span>')+'</div>'+
+    '</div>';
+}
+
+function clearNearest(){
+  if(_nearestLine)            { map.removeLayer(_nearestLine);            _nearestLine=null; }
+  if(_nearestMarkerHighlight) { map.removeLayer(_nearestMarkerHighlight); _nearestMarkerHighlight=null; }
+  if(_nearestPopup)           { map.removeLayer(_nearestPopup);           _nearestPopup=null; }
+}
 window.addEventListener('beforeunload', function(){
   if(_watchId!==null) navigator.geolocation.clearWatch(_watchId);
 });
