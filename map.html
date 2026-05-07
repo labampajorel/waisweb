@@ -321,39 +321,83 @@ async function loadData(){
   }
 }
 
-// ─── GPS ──────────────────────────────────────────────────────────────────────
+// ─── GPS realtime tracking ────────────────────────────────────────────────────
+var _watchId = null;
+var _isTracking = false;
+var _firstFix = true;
+
 function locateMe(){
   if(!navigator.geolocation){showToast('Geolocation not supported.',true);return;}
+  if(_isTracking){ stopTracking(); return; }
+  startTracking();
+}
+
+function startTracking(){
   var btn=document.getElementById('gps-btn');
-  btn.textContent='⏳ Locating…'; btn.disabled=true;
-  navigator.geolocation.getCurrentPosition(
+  btn.innerHTML='⏳ Getting fix…'; btn.disabled=true;
+
+  _firstFix = true;
+
+  _watchId = navigator.geolocation.watchPosition(
     function(pos){
-      var lat=pos.coords.latitude,lon=pos.coords.longitude,acc=pos.coords.accuracy;
-      if(_gpsMarker){map.removeLayer(_gpsMarker);_gpsMarker=null;}
-      if(_gpsCircle){map.removeLayer(_gpsCircle);_gpsCircle=null;}
-      _gpsCircle=L.circle([lat,lon],{radius:acc,color:'#1565C0',weight:1,fillColor:'#1E88E5',fillOpacity:0.12}).addTo(map);
-      var youIcon=L.divIcon({
-        className:'',
-        html:'<div style="position:relative;width:0;height:0">'+
-             '<div style="position:absolute;top:-24px;left:0;transform:translateX(-50%);background:#1565C0;color:#fff;font-size:9px;font-weight:700;font-family:\'Segoe UI\',sans-serif;padding:2px 7px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25)">You are here</div>'+
-             '<div style="position:absolute;top:-6px;left:0;transform:translateX(-50%);width:2px;height:9px;background:#1565C0"></div>'+
-             '<div style="position:absolute;top:-15px;left:0;transform:translateX(-50%);margin-left:-7px;width:14px;height:14px;border-radius:50%;background:#1E88E5;border:2.5px solid #fff;box-shadow:0 0 0 3px rgba(30,136,229,.3);animation:gpsPulse 1.6s ease-out infinite"></div>'+
-             '</div>',
-        iconSize:[0,0],iconAnchor:[0,0]
-      });
-      _gpsMarker=L.marker([lat,lon],{icon:youIcon,zIndexOffset:9000})
-        .bindPopup('<div style="font-size:12px;line-height:1.7"><b>&#128205; Your Location</b><br>Lat: '+lat.toFixed(6)+'<br>Lon: '+lon.toFixed(6)+'<br>Accuracy: ±'+Math.round(acc)+' m</div>')
-        .addTo(map).openPopup();
-      map.setView([lat,lon],16);
-      showToast('Location found · ±'+Math.round(acc)+' m accuracy');
-      btn.innerHTML='&#127757; My Location'; btn.disabled=false; btn.classList.add('located');
+      var lat=pos.coords.latitude, lon=pos.coords.longitude, acc=pos.coords.accuracy;
+
+      // Accuracy circle — resize smoothly
+      if(_gpsCircle){
+        _gpsCircle.setLatLng([lat,lon]);
+        _gpsCircle.setRadius(acc);
+      } else {
+        _gpsCircle=L.circle([lat,lon],{radius:acc,color:'#1565C0',weight:1,fillColor:'#1E88E5',fillOpacity:0.12}).addTo(map);
+      }
+
+      // Marker — move smoothly if already placed, otherwise create
+      if(_gpsMarker){
+        _gpsMarker.setLatLng([lat,lon]);
+        // Update popup content with fresh coords
+        _gpsMarker.setPopupContent(
+          '<div style="font-size:12px;line-height:1.7"><b>&#128205; Your Location</b><br>'+
+          'Lat: '+lat.toFixed(6)+'<br>Lon: '+lon.toFixed(6)+'<br>Accuracy: ±'+Math.round(acc)+' m</div>'
+        );
+      } else {
+        var youIcon=L.divIcon({
+          className:'',
+          html:'<div style="position:relative;width:0;height:0">'+
+               '<div style="position:absolute;top:-24px;left:0;transform:translateX(-50%);background:#1565C0;color:#fff;font-size:9px;font-weight:700;font-family:\'Segoe UI\',sans-serif;padding:2px 7px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25)">You are here</div>'+
+               '<div style="position:absolute;top:-6px;left:0;transform:translateX(-50%);width:2px;height:9px;background:#1565C0"></div>'+
+               '<div style="position:absolute;top:-15px;left:0;transform:translateX(-50%);margin-left:-7px;width:14px;height:14px;border-radius:50%;background:#1E88E5;border:2.5px solid #fff;box-shadow:0 0 0 3px rgba(30,136,229,.3);animation:gpsPulse 1.6s ease-out infinite"></div>'+
+               '</div>',
+          iconSize:[0,0],iconAnchor:[0,0]
+        });
+        _gpsMarker=L.marker([lat,lon],{icon:youIcon,zIndexOffset:9000})
+          .bindPopup('<div style="font-size:12px;line-height:1.7"><b>&#128205; Your Location</b><br>Lat: '+lat.toFixed(6)+'<br>Lon: '+lon.toFixed(6)+'<br>Accuracy: ±'+Math.round(acc)+' m</div>')
+          .addTo(map);
+      }
+
+      // Only pan to location on the first fix
+      if(_firstFix){
+        map.setView([lat,lon],16);
+        showToast('Tracking started · ±'+Math.round(acc)+' m accuracy');
+        btn.innerHTML='&#128309; Stop Tracking'; btn.disabled=false; btn.classList.add('located');
+        _isTracking=true; _firstFix=false;
+      }
     },
     function(err){
       var msg=err.code===1?'Location access denied.':err.code===3?'Request timed out.':'Location unavailable.';
-      showToast(msg,true); btn.innerHTML='&#127757; My Location'; btn.disabled=false;
+      showToast(msg,true);
+      stopTracking();
     },
-    {enableHighAccuracy:true,timeout:12000,maximumAge:30000}
+    {enableHighAccuracy:true,timeout:15000,maximumAge:2000}
   );
+}
+
+function stopTracking(){
+  if(_watchId!==null){ navigator.geolocation.clearWatch(_watchId); _watchId=null; }
+  _isTracking=false; _firstFix=true;
+  if(_gpsMarker){map.removeLayer(_gpsMarker);_gpsMarker=null;}
+  if(_gpsCircle){map.removeLayer(_gpsCircle);_gpsCircle=null;}
+  var btn=document.getElementById('gps-btn');
+  btn.innerHTML='&#127757; My Location'; btn.disabled=false; btn.classList.remove('located');
+  showToast('Location tracking stopped');
 }
 
 // ─── KMZ ─────────────────────────────────────────────────────────────────────
@@ -422,6 +466,11 @@ async function parseAndAddKmz(name,source){
 }
 function toggleKmz(lid,vis){if(!_kmzLayers[lid])return;if(vis)_kmzLayers[lid].layer.addTo(map);else _kmzLayers[lid].layer.remove();}
 function removeKmz(lid){if(!_kmzLayers[lid])return;try{_kmzLayers[lid].layer.remove();}catch(e){}delete _kmzLayers[lid];var r=document.getElementById('kmzrow-'+lid);if(r)r.remove();}
+
+// Stop tracking if user navigates away
+window.addEventListener('beforeunload', function(){
+  if(_watchId!==null) navigator.geolocation.clearWatch(_watchId);
+});
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 loadData();
