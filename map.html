@@ -56,6 +56,25 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0
 .nearest-label .leaflet-popup-content-wrapper{background:#fff;border:1.5px solid #E65100;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);padding:0}
 .nearest-label .leaflet-popup-content{margin:8px 12px}
 .nearest-label .leaflet-popup-tip-container{display:none}
+
+/* ── Nearest site info bar ── */
+#nearest-bar{
+  position:absolute;bottom:12px;left:50%;transform:translateX(-50%) translateY(80px);
+  z-index:1000;background:#fff;border:1.5px solid #E65100;border-radius:10px;
+  box-shadow:0 3px 12px rgba(0,0,0,.15);padding:10px 16px;
+  display:flex;align-items:center;gap:14px;
+  min-width:280px;max-width:420px;width:calc(100% - 40px);
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1);pointer-events:none;
+  font-family:'Segoe UI',sans-serif;
+}
+#nearest-bar.visible{transform:translateX(-50%) translateY(0)}
+.nb-icon{font-size:18px;flex-shrink:0;line-height:1}
+.nb-dist{font-size:15px;font-weight:700;color:#E65100;white-space:nowrap;flex-shrink:0}
+.nb-divider{width:1px;height:32px;background:#eee;flex-shrink:0}
+.nb-info{flex:1;min-width:0}
+.nb-site-id{font-size:12px;font-weight:700;color:#23ada7;font-family:monospace}
+.nb-site-name{font-size:12px;color:#1a1a2e;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb-meta{font-size:10px;color:#aaa;margin-top:1px}
 </style>
 </head>
 <body>
@@ -103,6 +122,16 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0
   <div id="map-outer">
     <div id="map"></div>
     <div id="site-count">— sites</div>
+    <div id="nearest-bar">
+      <div class="nb-icon">🔗</div>
+      <div class="nb-dist" id="nb-dist">—</div>
+      <div class="nb-divider"></div>
+      <div class="nb-info">
+        <div class="nb-site-id" id="nb-site-id">—</div>
+        <div class="nb-site-name" id="nb-site-name">—</div>
+        <div class="nb-meta" id="nb-meta">—</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -485,7 +514,6 @@ function removeKmz(lid){if(!_kmzLayers[lid])return;try{_kmzLayers[lid].layer.rem
 var _nearestEnabled = false;
 var _nearestLine    = null;
 var _nearestMarkerHighlight = null;
-var _nearestPopup   = null;
 
 function toggleNearest(){
   _nearestEnabled = !_nearestEnabled;
@@ -538,7 +566,7 @@ function updateNearest(userLat, userLon){
     ? Math.round(bestDist*1000)+' m'
     : bestDist.toFixed(2)+' km';
 
-  // Draw / update the dashed line
+  // Draw / update dashed line
   if(_nearestLine){
     _nearestLine.setLatLngs([[userLat,userLon],[sLat,sLon]]);
   } else {
@@ -548,7 +576,7 @@ function updateNearest(userLat, userLon){
     }).addTo(map);
   }
 
-  // Highlight the nearest site with an orange ring
+  // Orange ring around nearest site
   if(_nearestMarkerHighlight){
     _nearestMarkerHighlight.setLatLng([sLat,sLon]);
   } else {
@@ -559,37 +587,26 @@ function updateNearest(userLat, userLon){
     }).addTo(map);
   }
 
-  // Distance label at midpoint
-  var midLat = (userLat+sLat)/2;
-  var midLon = (userLon+sLon)/2;
-  if(_nearestPopup){
-    _nearestPopup.setLatLng([midLat,midLon]);
-    _nearestPopup.setContent(buildNearestLabel(best.site, distStr));
-  } else {
-    _nearestPopup = L.popup({
-      closeButton:false, autoClose:false, closeOnClick:false,
-      className:'nearest-label', offset:[0,0]
-    })
-    .setLatLng([midLat,midLon])
-    .setContent(buildNearestLabel(best.site, distStr))
-    .addTo(map);
-  }
-}
+  // Update bottom info bar
+  var s = best.site;
+  var onair = normStr(s.site_status)==='on-air';
+  var meta = [
+    onair ? '● On-Air' : '● Inactive',
+    s.area || '',
+    s.vendor || ''
+  ].filter(Boolean).join(' · ');
 
-function buildNearestLabel(site, distStr){
-  var onair = normStr(site.site_status)==='on-air';
-  return '<div style="font-size:11px;font-family:\'Segoe UI\',sans-serif;line-height:1.6;text-align:center">'+
-    '<div style="font-weight:700;color:#E65100">&#128279; '+distStr+'</div>'+
-    '<div style="font-weight:600;color:#1a1a2e">'+escHtml(site.site_id)+'</div>'+
-    '<div style="color:#888;font-size:10px">'+escHtml(site.site_name||'')+'</div>'+
-    '<div style="font-size:10px">'+(onair?'<span style="color:#2E7D32">&#9679; On-Air</span>':'<span style="color:#aaa">&#9679; Inactive</span>')+'</div>'+
-    '</div>';
+  document.getElementById('nb-dist').textContent    = distStr+' away';
+  document.getElementById('nb-site-id').textContent = s.site_id || '—';
+  document.getElementById('nb-site-name').textContent = s.site_name || '—';
+  document.getElementById('nb-meta').textContent    = meta;
+  document.getElementById('nearest-bar').classList.add('visible');
 }
 
 function clearNearest(){
   if(_nearestLine)            { map.removeLayer(_nearestLine);            _nearestLine=null; }
   if(_nearestMarkerHighlight) { map.removeLayer(_nearestMarkerHighlight); _nearestMarkerHighlight=null; }
-  if(_nearestPopup)           { map.removeLayer(_nearestPopup);           _nearestPopup=null; }
+  document.getElementById('nearest-bar').classList.remove('visible');
 }
 window.addEventListener('beforeunload', function(){
   if(_watchId!==null) navigator.geolocation.clearWatch(_watchId);
