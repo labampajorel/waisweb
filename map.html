@@ -50,6 +50,8 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0
 .kmz-layer-name{font-size:10px;flex:1;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px}
 .kmz-rm-btn{width:15px;height:15px;border:none;background:none;color:#bbb;cursor:pointer;font-size:12px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .kmz-rm-btn:hover{color:#c00}
+.site-label{background:transparent;border:none;box-shadow:none;padding:0;font-size:9px;font-weight:700;font-family:'Segoe UI',sans-serif;color:#1a1a2e;white-space:nowrap;pointer-events:none}
+.site-label::before{display:none}
 </style>
 </head>
 <body>
@@ -177,6 +179,39 @@ kmzCtrl.onAdd = function(){
 };
 kmzCtrl.addTo(map);
 
+// ─── Label zoom threshold ─────────────────────────────────────────────────────
+var LABEL_ZOOM = 12;
+var _labelTimer = null;
+
+function updateLabels(){
+  clearTimeout(_labelTimer);
+  _labelTimer = setTimeout(_doUpdateLabels, 150); // debounce — wait for pan/zoom to settle
+}
+
+function _doUpdateLabels(){
+  var zoom = map.getZoom();
+  var showLabels = zoom >= LABEL_ZOOM;
+  var bounds = map.getBounds().pad(0.1); // small padding so labels don't pop in at the edge
+
+  _markers.forEach(function(m){
+    if(!m.added) return;
+    var s = m.site;
+    var inView = showLabels && bounds.contains(m.marker.getLatLng());
+
+    if(inView && !m.labelOn){
+      m.marker.bindTooltip(escHtml(s.site_id),{
+        permanent:true, direction:'top', offset:[0,-7], className:'site-label'
+      }).openTooltip();
+      m.labelOn = true;
+    } else if(!inView && m.labelOn){
+      m.marker.unbindTooltip();
+      m.labelOn = false;
+    }
+  });
+}
+
+map.on('zoomend moveend', updateLabels);
+
 // ─── Tile toggle ──────────────────────────────────────────────────────────────
 function setTile(type){
   if(_tileLayer) map.removeLayer(_tileLayer);
@@ -211,16 +246,23 @@ function applyFilters(){
     var ok=(_techFilter==='all'||isTech(s,_techFilter))&&
            (!q||(s.site_id||'').toLowerCase().includes(q)||(s.site_name||'').toLowerCase().includes(q));
     if(ok&&!m.added){map.addLayer(m.marker);m.added=true;}
-    if(!ok&&m.added){map.removeLayer(m.marker);m.added=false;}
+    if(!ok&&m.added){
+      if(m.labelOn){m.marker.unbindTooltip();m.labelOn=false;}
+      map.removeLayer(m.marker);m.added=false;
+    }
     if(ok) shown++;
   });
   var el=document.getElementById('site-count');
   if(el) el.textContent=shown.toLocaleString()+' site'+(shown!==1?'s':'');
+  updateLabels();
 }
 
 // ─── Build markers — CircleMarker uses canvas, far less DOM overhead ──────────
 function buildMarkers(){
-  _markers.forEach(function(m){try{map.removeLayer(m.marker);}catch(e){}});
+  _markers.forEach(function(m){
+    if(m.labelOn){try{m.marker.unbindTooltip();}catch(e){}}
+    try{map.removeLayer(m.marker);}catch(e){}
+  });
   _markers=[];
   ALL.forEach(function(s){
     var lat=parseFloat(s.latitude),lon=parseFloat(s.longitude);
@@ -246,7 +288,7 @@ function buildMarkers(){
       '</div>';
     var marker=L.circleMarker([lat,lon],{radius:5,color:'#fff',weight:1.5,fillColor:color,fillOpacity:0.9});
     marker.bindPopup(popup,{maxWidth:240});
-    _markers.push({marker:marker,site:s,added:false});
+    _markers.push({marker:marker,site:s,added:false,labelOn:false});
   });
   applyFilters();
 }
