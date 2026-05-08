@@ -254,6 +254,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <a class="nav-link" href="tracker.html">Project Dashboard</a>
       <a class="nav-link" href="map.html">Site Tracker</a>
       <a class="nav-link" href="download.html">Download</a>
+      <a class="nav-link" href="logs.html" id="nav-logs" style="display:none">&#128203; Logs</a>
     </nav>
   </div>
   <div class="topbar-right">
@@ -853,6 +854,7 @@ async function doLogin() {
       username: res.username, display_name: res.display_name,
       role: res.role, auth_hash: hash
     }));
+    writeLog('LOGIN', '', '', '', '');
     showApp(res.display_name || res.username);
   } catch(e) {
     errEl.textContent = 'Connection error: ' + e.message;
@@ -864,6 +866,7 @@ async function doLogin() {
 
 function doLogout() {
   if (!confirm('Log out?')) return;
+  writeLog('LOGOUT', '', '', '', '');
   sessionStorage.removeItem('tsdb_session');
   IS_ADMIN = false; USER_ROLE = ''; AUTH_USER = ''; AUTH_HASH = ''; ALL = []; cellCache = {}; equipCache = {};
   document.getElementById('app').style.display = 'none';
@@ -879,6 +882,8 @@ function showApp(userName) {
   document.getElementById('add-btn').style.display = (IS_ADMIN || USER_ROLE === 'editor') ? '' : 'none';
   document.getElementById('readonly-bar').style.display = USER_ROLE === 'viewer' ? 'block' : 'none';
   document.getElementById('user-mgmt-btn').style.display = IS_ADMIN ? '' : 'none';
+  var logsNav = document.getElementById('nav-logs');
+  if (logsNav) logsNav.style.display = IS_ADMIN ? '' : 'none';
   var welcomeEl = document.getElementById('welcome-msg');
   if (welcomeEl) welcomeEl.textContent = 'Welcome, ' + userName + '!';
   loadSites();
@@ -893,6 +898,23 @@ function gsGet(url, params) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     });
+}
+
+// ─── Audit logger — fire and forget ──────────────────────────────────────────
+function writeLog(action, siteId, field, oldVal, newVal) {
+  try {
+    var sess = JSON.parse(sessionStorage.getItem('tsdb_session') || '{}');
+    gsGet(GS_URL, {
+      action:   'writeLog',
+      user:     sess.display_name || sess.username || AUTH_USER || 'unknown',
+      log_action: action,
+      site_id:  siteId  || '',
+      field:    field   || '',
+      old_val:  oldVal  || '',
+      new_val:  newVal  || '',
+      browser:  navigator.userAgent.substring(0, 120)
+    }).catch(function(){}); // silently ignore errors — don't break the UI
+  } catch(e) {}
 }
 
 var CACHE_KEY = 'tsdb_sites_cache';
@@ -1739,6 +1761,35 @@ async function saveSite() {
   try {
     var res = await gsGet(GS_URL, params);
     if (res.error) throw new Error(res.error);
+
+    // ── Audit log ──────────────────────────────────────────────────────────
+    if (editRow) {
+      // Edit — find the original site and log each changed field
+      var orig = ALL.find(function(s){ return String(s._row) === String(editRow); }) || {};
+      var fieldMap = {
+        site_id:'Site ID', site_name:'Site Name', site_status:'Status',
+        site_type:'Site Type', address:'Address', site_tag:'Site Tag',
+        brgy:'Barangay', city:'City', province:'Province', region:'Region',
+        area:'Area', latitude:'Latitude', longitude:'Longitude'
+      };
+      Object.keys(fieldMap).forEach(function(k){
+        var oldV = String(orig[k] || '');
+        var newV = String(params[k] || '');
+        if (oldV !== newV) writeLog('EDIT', params.site_id, fieldMap[k], oldV, newV);
+      });
+      // Log tech changes
+      document.querySelectorAll('#tech-checks input').forEach(function(cb){
+        var k = 'tech_'+cb.value.toLowerCase();
+        var oldV = String(orig[k] || 'FALSE');
+        var newV = cb.checked ? 'TRUE' : 'FALSE';
+        if (oldV !== newV) writeLog('EDIT', params.site_id, 'Tech '+cb.value, oldV, newV);
+      });
+    } else {
+      // New site
+      writeLog('NEW SITE', params.site_id, '', '', '');
+    }
+    // ──────────────────────────────────────────────────────────────────────
+
     closeModal();
     showToast(editRow ? 'Site updated!' : 'Site added!');
     localStorage.removeItem(CACHE_KEY);
@@ -1754,9 +1805,13 @@ async function saveSite() {
 async function deleteSite() {
   if (!editRow || !confirm('Delete this site? This cannot be undone.')) return;
   syncDot('spin');
+  var delSiteId = '';
+  var orig = ALL.find(function(s){ return String(s._row) === String(editRow); });
+  if (orig) delSiteId = orig.site_id || '';
   try {
     var res = await gsGet(GS_URL, { action: 'delete', _row: editRow });
     if (res.error) throw new Error(res.error);
+    writeLog('DELETE', delSiteId, '', '', '');
     closeModal();
     showToast('Site deleted.');
     localStorage.removeItem(CACHE_KEY);
