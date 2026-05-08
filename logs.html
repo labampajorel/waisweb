@@ -69,10 +69,56 @@ tbody tr:hover{background:#f9fffe}
 .skel{height:12px;border-radius:4px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;display:inline-block;width:100%}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
+/* ── Mobile drawer ── */
+.mob-menu-btn{display:none;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid #d0d0d0;border-radius:7px;background:#fff;cursor:pointer;flex-shrink:0;margin-left:auto;padding:0}
+.mob-drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:900}
+.mob-drawer-bg.open{display:block}
+.mob-drawer{position:fixed;top:0;left:-280px;width:260px;height:100%;background:#fff;z-index:901;box-shadow:4px 0 20px rgba(0,0,0,.12);transition:left .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden;visibility:hidden}
+.mob-drawer.open{left:0;visibility:visible}
+.mob-drawer-head{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #f0f0f0}
+.mob-drawer-logo{max-height:32px;width:auto}
+.mob-drawer-close{border:none;background:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;padding:4px}
+.mob-drawer-nav{display:flex;flex-direction:column;gap:2px;padding:12px 10px;flex:1}
+.mob-drawer-nav a{display:block;padding:11px 14px;font-size:14px;font-weight:600;color:#555;text-decoration:none;border-radius:8px;transition:background .15s;position:relative}
+.mob-drawer-nav a:hover,.mob-drawer-nav a.active{background:#f0f0f0;color:#1a1a2e}
+.mob-drawer-nav a.active::before{content:'';position:absolute;left:0;top:25%;bottom:25%;width:3px;background:#23ada7;border-radius:2px}
+.mob-drawer-footer{padding:14px;border-top:1px solid #f0f0f0;display:flex;flex-direction:column;gap:8px}
+.mob-drawer-btn{height:36px;width:100%;border:1px solid #d0d0d0;border-radius:8px;background:#fff;color:#555;font-size:13px;font-weight:500;cursor:pointer}
+.mob-drawer-btn.danger{border-color:#f5c2c2;color:#A32D2D}
+
 /* ── Toast ── */
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .3s;z-index:9999;pointer-events:none;white-space:nowrap}
 #toast.show{opacity:1}
 #toast.terr{background:#A32D2D}
+
+@media(max-width:768px){
+  /* Topbar */
+  .topbar{padding:0 14px}
+  .hdr-nav{display:none}
+  .topbar-right .topbar-btn{display:none}
+  .topbar-right .sync-pill{display:none}
+  .topbar-right #welcome-msg{display:none}
+  .mob-menu-btn{display:flex!important}
+
+  /* Page */
+  .page{padding:1rem}
+
+  /* Toolbar — stack vertically */
+  .log-toolbar{flex-direction:column;align-items:stretch;gap:8px}
+  .search-box{width:100%;height:42px}
+  .search-box input{font-size:15px}
+  #action-filters{display:flex;flex-wrap:wrap;gap:6px}
+  .fb{height:34px;font-size:12px}
+
+  /* Table — horizontal scroll, tighter rows */
+  .table-wrap{max-height:calc(100vh - 240px)}
+  table{font-size:11px;min-width:600px}
+  thead th{padding:7px 10px;font-size:10px}
+  tbody td{padding:7px 10px}
+
+  /* Count */
+  #log-count{font-size:11px;text-align:center}
+}
 </style>
 </head>
 <body>
@@ -93,6 +139,31 @@ tbody tr:hover{background:#f9fffe}
     <span id="welcome-msg" style="font-size:12px;color:#888"></span>
     <button onclick="loadLogs(true)" class="topbar-btn">&#8635; Refresh</button>
     <button onclick="doLogout()" class="topbar-btn">Logout</button>
+    <button class="mob-menu-btn" onclick="openDrawer()" aria-label="Menu">
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><rect y="0" width="16" height="1.5" rx="1" fill="#555"/><rect y="5.25" width="16" height="1.5" rx="1" fill="#555"/><rect y="10.5" width="16" height="1.5" rx="1" fill="#555"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Mobile drawer -->
+<div class="mob-drawer-bg" id="mob-drawer-bg" onclick="closeDrawer()"></div>
+<div class="mob-drawer" id="mob-drawer">
+  <div class="mob-drawer-head">
+    <img class="mob-drawer-logo" src="waislogo2.png" alt="WAIS">
+    <button class="mob-drawer-close" onclick="closeDrawer()">&#215;</button>
+  </div>
+  <nav class="mob-drawer-nav">
+    <a href="index.html">Home</a>
+    <a href="tracker.html">Project Dashboard</a>
+    <a href="map.html">Site Tracker</a>
+    <a href="download.html">Download</a>
+    <a class="active" href="logs.html">&#128203; Logs</a>
+  </nav>
+  <div class="mob-drawer-footer">
+    <div class="sync-pill"><div class="dot" id="mob-sync-dot"></div><span id="mob-sync-lbl">Loading…</span></div>
+    <span id="mob-welcome" style="font-size:12px;color:#888"></span>
+    <button class="mob-drawer-btn" onclick="closeDrawer();loadLogs(true)">&#8635; Refresh</button>
+    <button class="mob-drawer-btn danger" onclick="closeDrawer();doLogout()">Logout</button>
   </div>
 </div>
 
@@ -163,7 +234,22 @@ var CACHE_TTL = 5 * 60 * 1000; // 5 min — logs should be fairly fresh
     return;
   }
   document.getElementById('welcome-msg').textContent = 'Welcome, ' + (sess.display_name || sess.username) + '!';
+  var mob = document.getElementById('mob-welcome');
+  if (mob) mob.textContent = 'Welcome, ' + (sess.display_name || sess.username) + '!';
 })();
+
+// ─── Mobile drawer ────────────────────────────────────────────────────────────
+function openDrawer(){
+  document.getElementById('mob-drawer').classList.add('open');
+  document.getElementById('mob-drawer-bg').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeDrawer(){
+  document.getElementById('mob-drawer').classList.remove('open');
+  document.getElementById('mob-drawer-bg').classList.remove('open');
+  document.body.style.overflow='';
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDrawer();});
 
 // ─── State ────────────────────────────────────────────────────────────────────
 var ALL_LOGS = [];
@@ -172,8 +258,14 @@ var _actionFilter = 'all';
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function syncDot(state){
-  document.getElementById('sync-dot').className='dot'+(state==='spin'?' spin':state==='err'?' err':'');
-  document.getElementById('sync-lbl').textContent=state==='spin'?'Loading…':state==='err'?'Error':'Synced';
+  var cls='dot'+(state==='spin'?' spin':state==='err'?' err':'');
+  var txt=state==='spin'?'Loading…':state==='err'?'Error':'Synced';
+  document.getElementById('sync-dot').className=cls;
+  document.getElementById('sync-lbl').textContent=txt;
+  var md=document.getElementById('mob-sync-dot');
+  var ml=document.getElementById('mob-sync-lbl');
+  if(md) md.className=cls;
+  if(ml) ml.textContent=txt;
 }
 var _toastTimer;
 function showToast(msg,isErr){
