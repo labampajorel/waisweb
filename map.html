@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>WAIS — Site Tracker</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -78,9 +78,25 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0
 .mob-drawer-btn.danger{border-color:#f5c2c2;color:#A32D2D}
 
 /* ── Mobile map toolbar FAB ── */
-#mob-map-fab{display:none;position:absolute;bottom:72px;right:14px;z-index:1100;width:44px;height:44px;border-radius:50%;background:#1a1a2e;border:none;box-shadow:0 3px 12px rgba(0,0,0,.25);cursor:pointer;align-items:center;justify-content:center;color:#fff;font-size:20px}
+#mob-map-fab{
+  display:none;
+  position:fixed;
+  bottom:calc(20px + env(safe-area-inset-bottom, 0px));
+  right:16px;
+  z-index:1100;
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  background:#1a1a2e;
+  border:none;
+  box-shadow:0 3px 16px rgba(0,0,0,.3);
+  cursor:pointer;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+}
 #mob-map-panel-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:1199}
-#mob-map-panel{display:none;position:fixed;bottom:0;left:0;right:0;z-index:1200;background:#fff;border-radius:20px 20px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.15);padding:16px 16px 32px;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)}
+#mob-map-panel{display:none;position:fixed;bottom:0;left:0;right:0;z-index:1200;background:#fff;border-radius:20px 20px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.15);padding:16px 16px calc(24px + env(safe-area-inset-bottom, 0px));transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)}
 #mob-map-panel.open{transform:translateY(0)}
 .mob-panel-handle{width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 16px}
 .mob-panel-section{display:flex;flex-direction:column;gap:10px}
@@ -101,15 +117,15 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0
   #map-wrap{height:calc(100vh - 56px)}
   .map-strip{display:none}
 
-  /* Show FAB and panel */
+  /* Show FAB only — panel opens on tap */
   #mob-map-fab{display:flex}
-  #mob-map-panel{display:block}
-  #mob-map-panel-bg{display:block}
+  #mob-map-panel{display:block;pointer-events:none}
+  #mob-map-panel-bg{display:none}
   /* Site count badge - move up on mobile */
-  #site-count{bottom:72px;left:10px;font-size:10px}
+  #site-count{bottom:calc(80px + env(safe-area-inset-bottom, 0px));left:10px;font-size:10px}
 
-  /* Nearest bar - full width on mobile */
-  #nearest-bar{bottom:72px;width:calc(100% - 28px)}
+  /* Nearest bar - full width, above FAB */
+  #nearest-bar{bottom:calc(80px + env(safe-area-inset-bottom, 0px));width:calc(100% - 28px)}
 }
 #nearest-bar{
   position:fixed;
@@ -253,10 +269,10 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0
       <div class="mob-panel-section">
         <div class="mob-panel-label">Technology</div>
         <div class="mob-panel-row" id="mob-tech-filters">
-          <button class="fb on" onclick="setTechFilter(this,'all');syncMobFilters()">All</button>
-          <button class="fb" onclick="setTechFilter(this,'2G');syncMobFilters()">2G</button>
-          <button class="fb" onclick="setTechFilter(this,'4G');syncMobFilters()">4G</button>
-          <button class="fb" onclick="setTechFilter(this,'5G');syncMobFilters()">5G</button>
+          <button class="fb on" onclick="setTechFilter(this,'all')">All</button>
+          <button class="fb" onclick="setTechFilter(this,'2G')">2G</button>
+          <button class="fb" onclick="setTechFilter(this,'4G')">4G</button>
+          <button class="fb" onclick="setTechFilter(this,'5G')">5G</button>
         </div>
       </div>
 
@@ -265,8 +281,8 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0
       <div class="mob-panel-section">
         <div class="mob-panel-label">Map Style</div>
         <div class="mob-panel-row">
-          <button class="tbtn active" id="mob-btn-map" onclick="setTile('map');document.getElementById('btn-map').click()" style="flex:1">Map</button>
-          <button class="tbtn" id="mob-btn-satellite" onclick="setTile('satellite');document.getElementById('btn-satellite').click()" style="flex:1">Satellite</button>
+          <button class="tbtn active" id="mob-btn-map" onclick="setTile('map')" style="flex:1">Map</button>
+          <button class="tbtn" id="mob-btn-satellite" onclick="setTile('satellite')" style="flex:1">Satellite</button>
         </div>
       </div>
 
@@ -409,14 +425,30 @@ function setTile(type){
     ? L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19})
     : L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; OSM &copy; CARTO',subdomains:'abcd',maxZoom:19});
   _tileLayer.addTo(map);
+  // Sync desktop buttons
   document.getElementById('btn-map').classList.toggle('active',type==='map');
   document.getElementById('btn-satellite').classList.toggle('active',type==='satellite');
+  // Sync mobile buttons
+  var mb = document.getElementById('mob-btn-map');
+  var ms = document.getElementById('mob-btn-satellite');
+  if(mb) mb.classList.toggle('active',type==='map');
+  if(ms) ms.classList.toggle('active',type==='satellite');
 }
 
 // ─── Filters & search ────────────────────────────────────────────────────────
 function setTechFilter(btn,val){
-  document.querySelectorAll('#tech-filters .fb').forEach(function(b){b.classList.remove('on');});
-  btn.classList.add('on'); _techFilter=val; applyFilters();
+  // Determine which group the clicked button belongs to
+  var isDesktop = !!btn.closest('#tech-filters');
+  var isMobile  = !!btn.closest('#mob-tech-filters');
+  // Clear both groups and re-apply active to matching value
+  document.querySelectorAll('#tech-filters .fb, #mob-tech-filters .fb').forEach(function(b){
+    b.classList.remove('on');
+  });
+  // Highlight the matching button in BOTH groups
+  document.querySelectorAll('#tech-filters .fb, #mob-tech-filters .fb').forEach(function(b){
+    if(b.textContent.trim() === btn.textContent.trim()) b.classList.add('on');
+  });
+  _techFilter=val; applyFilters();
 }
 function onSearch(q){
   _searchQ=q; applyFilters();
@@ -782,12 +814,18 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeDrawer
 
 // ─── Mobile map panel ─────────────────────────────────────────────────────────
 function openMobPanel(){
-  document.getElementById('mob-map-panel').classList.add('open');
-  document.getElementById('mob-map-panel-bg').style.display='block';
+  var panel = document.getElementById('mob-map-panel');
+  var bg = document.getElementById('mob-map-panel-bg');
+  panel.classList.add('open');
+  panel.style.pointerEvents = 'auto';
+  bg.style.display = 'block';
 }
 function closeMobPanel(){
-  document.getElementById('mob-map-panel').classList.remove('open');
-  document.getElementById('mob-map-panel-bg').style.display='none';
+  var panel = document.getElementById('mob-map-panel');
+  var bg = document.getElementById('mob-map-panel-bg');
+  panel.classList.remove('open');
+  panel.style.pointerEvents = 'none';
+  bg.style.display = 'none';
 }
 function syncMobFilters(){
   // Keep mobile panel filter pills in sync with desktop
