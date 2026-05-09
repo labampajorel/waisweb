@@ -1,0 +1,26 @@
+{
+  "name": "WAIS — Wireless Access Information Storage",
+  "short_name": "WAIS",
+  "description": "Wireless Access Information Storage — site management and project tracking",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f0f2f5",
+  "theme_color": "#1a1a2e",
+  "icons": [
+    {
+      "src": "waislogo2.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "waislogo2.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "scope": "/"
+}
