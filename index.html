@@ -42,7 +42,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2
 .sync{font-size:12px;color:#888;display:flex;align-items:center;gap:6px}
 
 /* -- Top Nav -- */
-.topbar{display:flex;align-items:center;justify-content:space-between;height:56px;min-height:56px;max-height:56px;padding:0 20px;background:#fff;border-bottom:1px solid #e8e8e8;gap:16px;position:sticky;top:0;z-index:100;overflow:hidden;flex-wrap:nowrap}
+.topbar{display:none;align-items:center;justify-content:space-between;height:56px;min-height:56px;max-height:56px;padding:0 20px;background:#fff;border-bottom:1px solid #e8e8e8;gap:16px;position:sticky;top:0;z-index:100;overflow:hidden;flex-wrap:nowrap}
 .topbar-left{display:flex;align-items:center;gap:0;flex-shrink:0;height:100%}
 .topbar-logo{display:block;max-height:36px;width:auto;flex-shrink:0}
 .topbar-right{display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:nowrap;white-space:nowrap}
@@ -291,6 +291,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
   #app{padding:.75rem}
 }
 </style>
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#1a1a2e"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="WAIS"/>
+  <link rel="apple-touch-icon" href="waislogo2.png"/>
 </head>
 <body>
 
@@ -977,6 +983,7 @@ function doLogout() {
   sessionStorage.removeItem('tsdb_session');
   IS_ADMIN = false; USER_ROLE = ''; AUTH_USER = ''; AUTH_HASH = ''; ALL = []; cellCache = {}; equipCache = {};
   document.getElementById('app').style.display = 'none';
+  document.querySelector('.topbar').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('login-pw').value = '';
   document.getElementById('login-err').style.display = 'none';
@@ -1017,6 +1024,7 @@ function showApp(userName) {
   userName = userName || 'User';
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  document.querySelector('.topbar').style.display = 'flex';
   document.getElementById('add-btn').style.display = (IS_ADMIN || USER_ROLE === 'editor') ? '' : 'none';
   document.getElementById('readonly-bar').style.display = USER_ROLE === 'viewer' ? 'block' : 'none';
   document.getElementById('user-mgmt-btn').style.display = IS_ADMIN ? '' : 'none';
@@ -2170,6 +2178,15 @@ function showToast(msg, isErr) {
   el.className = 'show' + (isErr ? ' terr' : '');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(function(){ el.className=''; }, 3500);
+}
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(reg) { console.log('WAIS SW registered:', reg.scope); })
+      .catch(function(err) { console.warn('WAIS SW registration failed:', err); });
+  });
 }
 </script>
 </body>
