@@ -218,6 +218,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2
   .page{padding:.75rem}
 }
 </style>
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#1a1a2e"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="WAIS"/>
+  <link rel="apple-touch-icon" href="waislogo2.png"/>
 </head>
 <body>
 
@@ -906,6 +912,15 @@ function doLogout(){
   } catch(e){}
   loadData(); // cache missing or stale — fetch from network
 })();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(reg) { console.log('WAIS SW registered:', reg.scope); })
+      .catch(function(err) { console.warn('WAIS SW registration failed:', err); });
+  });
+}
 </script>
 </body>
 </html>
