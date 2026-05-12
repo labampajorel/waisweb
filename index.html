@@ -1353,34 +1353,70 @@ function showDetail(idx) {
       };
       _kmzCtrl.addTo(m);
 
-      // Nearby sites as small dots
+      // Nearby sites — fast CircleMarkers on canvas, labels only at zoom ≥16
+      var _detMarkers = [];
       ALL.forEach(function(other) {
         var olat = parseFloat(other.latitude), olon = parseFloat(other.longitude);
         if (isNaN(olat) || isNaN(olon)) return;
         if (other.site_id === s.site_id) return;
-        var dotIcon = L.divIcon({
-          className: '',
-          html: '<div style="position:relative;width:0;height:0">' +
-                '<div style="position:absolute;bottom:8.5px;left:0;transform:translateX(-50%);background:rgba(80,80,80,0.65);color:#fff;font-size:8px;font-weight:600;font-family:\'Segoe UI\',sans-serif;padding:1px 4px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.2)">' + escHtml(other.site_id) + '</div>' +
-                '<div style="position:absolute;bottom:3.5px;left:-0.75px;width:1.5px;height:5px;background:#999"></div>' +
-                '<div style="position:absolute;top:-3.5px;left:-3.5px;width:7px;height:7px;border-radius:50%;background:#aaa;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>' +
-                '</div>',
-          iconSize: [0, 0], iconAnchor: [0, 0]
+        var onair = (other.site_status||'').toLowerCase() === 'on-air';
+        var cm = L.circleMarker([olat, olon], {
+          radius: 4,
+          color: onair ? '#2E7D32' : '#999',
+          weight: 1.5,
+          fillColor: onair ? '#4CAF50' : '#bbb',
+          fillOpacity: 0.85
         });
-        L.marker([olat, olon], { icon: dotIcon, title: other.site_id }).addTo(m);
+        cm.bindTooltip(other.site_id, {
+          permanent: false, direction: 'top',
+          className: 'site-label', offset: [0, -4]
+        });
+        cm.addTo(m);
+        _detMarkers.push({marker: cm, id: other.site_id, lat: olat, lon: olon});
       });
 
-      // Selected site pin
-      var pinIcon = L.divIcon({
-        className: '',
-        html: '<div style="position:relative;width:0;height:0">' +
-              '<div style="position:absolute;bottom:13px;left:0;transform:translateX(-50%);background:#2E7D32;color:#fff;font-size:10px;font-weight:700;font-family:\'Segoe UI\',sans-serif;padding:3px 8px;border-radius:5px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.2)">' + escHtml(s.site_id) + '</div>' +
-              '<div style="position:absolute;bottom:5px;left:-1px;width:2px;height:8px;background:#2E7D32"></div>' +
-              '<div style="position:absolute;top:-5px;left:-5px;width:10px;height:10px;border-radius:50%;background:#2E7D32;box-shadow:0 0 0 4px rgba(46,125,50,.2)"></div>' +
-              '</div>',
-        iconSize: [0, 0], iconAnchor: [0, 0]
-      });
-      L.marker([lat, lon], { icon: pinIcon, zIndexOffset: 1000 }).addTo(m);
+      // Show/hide labels based on zoom — only render within viewport at zoom ≥16
+      function updateDetLabels() {
+        var z = m.getZoom();
+        var bounds = m.getBounds();
+        _detMarkers.forEach(function(dm) {
+          if (z >= 16 && bounds.contains([dm.lat, dm.lon])) {
+            if (!dm.labelOn) {
+              dm.marker.bindTooltip(dm.id, {
+                permanent: true, direction: 'top',
+                className: 'site-label', offset: [0, -4]
+              });
+              dm.labelOn = true;
+            }
+          } else {
+            if (dm.labelOn) {
+              dm.marker.unbindTooltip();
+              dm.marker.bindTooltip(dm.id, {
+                permanent: false, direction: 'top',
+                className: 'site-label', offset: [0, -4]
+              });
+              dm.labelOn = false;
+            }
+          }
+        });
+      }
+      m.on('zoomend moveend', updateDetLabels);
+
+      // Selected site — larger green CircleMarker with permanent label
+      var selectedMarker = L.circleMarker([lat, lon], {
+        radius: 8,
+        color: '#1B5E20',
+        weight: 2.5,
+        fillColor: '#2E7D32',
+        fillOpacity: 1,
+        zIndexOffset: 1000
+      }).addTo(m);
+      selectedMarker.bindTooltip(s.site_id, {
+        permanent: true,
+        direction: 'top',
+        className: 'site-label',
+        offset: [0, -8]
+      }).openTooltip();
     }, 100);
   }
 
