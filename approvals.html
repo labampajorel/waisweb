@@ -4,6 +4,12 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>WAIS — Approvals Tracker</title>
+<link rel="manifest" href="/manifest.json"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="WAIS"/>
+<link rel="apple-touch-icon" href="waislogo2.png"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2e;min-height:100vh}
@@ -137,12 +143,39 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2
   .topbar-right #welcome-msg{display:none}
   .mob-menu-btn{display:flex!important}
   .page{padding:1rem}
+
+  /* Date toolbar */
+  .date-toolbar{flex-direction:column;align-items:flex-start;gap:8px}
+  .date-controls{flex-wrap:wrap;gap:6px;width:100%}
+  .date-input{flex:1;min-width:130px}
+
+  /* KPI cards — 2 col */
   .kpi-row{grid-template-columns:repeat(2,1fr);gap:8px}
-  .date-toolbar{flex-direction:column;align-items:flex-start}
-  .search-wrap{width:100%}
+  .kpi{padding:12px}
+  .kpi-total{font-size:24px}
+  .ka-val{font-size:12px}
+
+  /* Pivot table */
+  .tbl-wrap{overflow-x:auto}
+  .pivot-table{font-size:11px}
+  .pivot-table thead th{padding:6px 8px;font-size:9px}
+  .pivot-table tbody td{padding:5px 8px}
+
+  /* Document queue */
+  .card-head{flex-direction:column;align-items:flex-start;gap:8px}
+  .search-wrap{width:100%;max-width:100%}
+  .doc-wrap{max-height:260px}
+  .doc-table{font-size:11px}
+  .doc-table thead th{padding:6px 8px;font-size:9px}
+  .doc-table tbody td{padding:6px 8px}
 }
 @media(max-width:480px){
   .kpi-row{grid-template-columns:1fr 1fr}
+  .page{padding:.75rem}
+  .kpi-areas{gap:2px}
+  .ka{padding:5px 1px}
+  .ka-name{font-size:8px}
+  .ka-val{font-size:11px}
 }
 </style>
 </head>
@@ -663,6 +696,15 @@ function doLogout(){
   document.getElementById('date-picker').value='';
 })();
 loadData();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(reg) { console.log('WAIS SW registered:', reg.scope); })
+      .catch(function(err) { console.warn('WAIS SW registration failed:', err); });
+  });
+}
 </script>
 </body>
 </html>
