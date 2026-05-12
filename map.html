@@ -233,6 +233,8 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0
     <div class="strip-sep"></div>
     <button class="tbtn gps-btn" id="gps-btn" onclick="locateMe()">&#127757; My Location</button>
     <div class="strip-sep"></div>
+    <button class="tbtn gps-btn" id="follow-btn" onclick="toggleFollow()">&#127919; Follow Me</button>
+    <div class="strip-sep"></div>
     <button class="tbtn" id="nearest-btn" onclick="toggleNearest()" title="Show nearest site from your location">&#128279; Nearest Site</button>
     <div class="strip-sep"></div>
     <div class="legend">
@@ -299,6 +301,9 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0
       <div class="mob-panel-section">
         <div class="mob-panel-row">
           <button class="tbtn gps-btn" id="mob-gps-btn" onclick="locateMe()" style="flex:1">&#127757; My Location</button>
+          <button class="tbtn gps-btn" id="mob-follow-btn" onclick="toggleFollow()" style="flex:1">&#127919; Follow Me</button>
+        </div>
+        <div class="mob-panel-row">
           <button class="tbtn" id="mob-nearest-btn" onclick="toggleNearest()" style="flex:1">&#128279; Nearest Site</button>
         </div>
       </div>
@@ -425,6 +430,14 @@ function _doUpdateLabels(){
 }
 
 map.on('zoomend moveend', updateLabels);
+// Disable follow mode when user manually drags the map
+map.on('dragstart', function(){
+  if(_followMode){
+    _followMode = false;
+    updateFollowBtn();
+    showToast('Follow mode off');
+  }
+});
 
 // ─── Tile toggle ──────────────────────────────────────────────────────────────
 function setTile(type){
@@ -555,11 +568,29 @@ async function loadData(){
 var _watchId = null;
 var _isTracking = false;
 var _firstFix = true;
+var _followMode = false; // when true, map re-centers on every GPS update
 
 function locateMe(){
   if(!navigator.geolocation){showToast('Geolocation not supported.',true);return;}
   if(_isTracking){ stopTracking(); return; }
   startTracking();
+}
+
+function toggleFollow(){
+  if(!_isTracking){ showToast('Enable My Location first',true); return; }
+  _followMode = !_followMode;
+  if(_followMode && _gpsMarker){
+    map.panTo(_gpsMarker.getLatLng(),{animate:true,duration:0.5});
+  }
+  updateFollowBtn();
+  showToast(_followMode ? 'Following your location' : 'Follow mode off');
+}
+
+function updateFollowBtn(){
+  var btn = document.getElementById('follow-btn');
+  var mbtn = document.getElementById('mob-follow-btn');
+  if(btn){ btn.classList.toggle('located', _followMode); btn.innerHTML = _followMode ? '&#127919; Following' : '&#127919; Follow Me'; }
+  if(mbtn){ mbtn.classList.toggle('located', _followMode); mbtn.innerHTML = _followMode ? '&#127919; Following' : '&#127919; Follow Me'; }
 }
 
 function startTracking(){
@@ -603,12 +634,17 @@ function startTracking(){
           .addTo(map);
       }
 
-      // Only pan to location on the first fix
+      // On first fix — always pan and set up follow mode
       if(_firstFix){
         map.setView([lat,lon],16);
+        _followMode = true;
         showToast('Tracking started · ±'+Math.round(acc)+' m accuracy');
         btn.innerHTML='&#128309; Stop Tracking'; btn.disabled=false; btn.classList.add('located');
         _isTracking=true; _firstFix=false;
+        updateFollowBtn();
+      } else if(_followMode){
+        // Follow mode — keep map centered on user
+        map.panTo([lat,lon],{animate:true,duration:0.5});
       }
 
       // Update nearest site line on every fix
@@ -625,7 +661,8 @@ function startTracking(){
 
 function stopTracking(){
   if(_watchId!==null){ navigator.geolocation.clearWatch(_watchId); _watchId=null; }
-  _isTracking=false; _firstFix=true;
+  _isTracking=false; _firstFix=true; _followMode=false;
+  updateFollowBtn();
   if(_gpsMarker){map.removeLayer(_gpsMarker);_gpsMarker=null;}
   if(_gpsCircle){map.removeLayer(_gpsCircle);_gpsCircle=null;}
   // Also clear nearest site when tracking stops
