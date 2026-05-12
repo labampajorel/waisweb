@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>WAIS — Approvals Tracker</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2e;min-height:100vh}
+
+/* ── Topbar ── */
+.topbar{display:flex;align-items:center;justify-content:space-between;height:56px;min-height:56px;max-height:56px;padding:0 20px;background:#fff;border-bottom:1px solid #e8e8e8;gap:16px;position:sticky;top:0;z-index:100;overflow:hidden;flex-wrap:nowrap}
+.topbar-left{display:flex;align-items:center;gap:0;flex-shrink:0;height:100%}
+.topbar-logo{display:block;max-height:36px;width:auto;flex-shrink:0}
+.hdr-nav{display:flex;align-items:center;gap:2px;margin-left:8px;padding-left:12px;border-left:1px solid #e8e8e8;flex-wrap:nowrap}
+.nav-link{font-size:13px;font-weight:600;color:#888;text-decoration:none;padding:6px 14px;border-radius:7px;transition:all .15s;white-space:nowrap;background:transparent;letter-spacing:.01em}
+.nav-link:hover{color:#1a1a2e;background:#f0f0f0}
+.nav-link.active{color:#1a1a2e;background:#f0f0f0;position:relative}
+.nav-link.active::after{content:'';position:absolute;bottom:2px;left:14px;right:14px;height:2px;background:#23ada7;border-radius:2px}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:nowrap;white-space:nowrap}
+.topbar-btn{height:32px;padding:0 12px;font-size:12px;font-weight:500;border:1px solid #d0d0d0;border-radius:7px;background:#fff;color:#555;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center}
+.topbar-btn:hover{background:#f5f5f5;color:#1a1a2e}
+.sync-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:#888}
+.dot{width:8px;height:8px;border-radius:50%;background:#639922;flex-shrink:0}
+.dot.spin{background:#BA7517;animation:pulse 1s infinite}
+.dot.err{background:#E24B4A}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Mobile drawer ── */
+.mob-menu-btn{display:none;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid #d0d0d0;border-radius:7px;background:#fff;cursor:pointer;flex-shrink:0;margin-left:auto;padding:0}
+.mob-drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:900}
+.mob-drawer-bg.open{display:block}
+.mob-drawer{position:fixed;top:0;left:-280px;width:260px;height:100%;background:#fff;z-index:901;box-shadow:4px 0 20px rgba(0,0,0,.12);transition:left .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden;visibility:hidden}
+.mob-drawer.open{left:0;visibility:visible}
+.mob-drawer-head{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #f0f0f0}
+.mob-drawer-logo{max-height:32px;width:auto}
+.mob-drawer-close{border:none;background:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;padding:4px}
+.mob-drawer-nav{display:flex;flex-direction:column;gap:2px;padding:12px 10px;flex:1}
+.mob-drawer-nav a{display:block;padding:11px 14px;font-size:14px;font-weight:600;color:#555;text-decoration:none;border-radius:8px;transition:background .15s;position:relative}
+.mob-drawer-nav a:hover,.mob-drawer-nav a.active{background:#f0f0f0;color:#1a1a2e}
+.mob-drawer-nav a.active::before{content:'';position:absolute;left:0;top:25%;bottom:25%;width:3px;background:#23ada7;border-radius:2px}
+.mob-drawer-footer{padding:14px;border-top:1px solid #f0f0f0;display:flex;flex-direction:column;gap:8px}
+.mob-drawer-btn{height:36px;width:100%;border:1px solid #d0d0d0;border-radius:8px;background:#fff;color:#555;font-size:13px;font-weight:500;cursor:pointer}
+.mob-drawer-btn.danger{border-color:#f5c2c2;color:#A32D2D}
+
+/* ── Layout ── */
+.page{max-width:1300px;margin:0 auto;padding:1.5rem}
+.section-lbl{font-size:10px;font-weight:600;color:#aaa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+
+/* ── Date toolbar ── */
+.date-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px}
+.date-title{font-size:15px;font-weight:700;color:#1a1a2e}
+.date-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.date-input{height:34px;padding:0 12px;font-size:12px;border:1px solid #d0d0d0;border-radius:7px;background:#fff;color:#1a1a2e;cursor:pointer;outline:none}
+.date-input:focus{border-color:#23ada7}
+.date-btn{height:34px;padding:0 12px;font-size:12px;font-weight:500;border:1px solid #d0d0d0;border-radius:7px;background:#fff;color:#555;cursor:pointer;white-space:nowrap}
+.date-btn:hover{background:#f5f5f5}
+.date-btn.active{background:#23ada7;border-color:#23ada7;color:#fff}
+
+/* ── KPI cards ── */
+.kpi-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
+.kpi{background:#fff;border:1px solid #e8e8e8;border-radius:10px;padding:16px;border-top:3px solid transparent;min-width:0}
+.kpi-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.kpi-name{font-size:12px;font-weight:600;color:#555}
+.kpi-total{font-size:30px;font-weight:700;line-height:1}
+.kpi-areas{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:12px;width:100%}
+.ka{background:#f5f5f5;border-radius:6px;padding:6px 2px;text-align:center;min-width:0}
+.ka-name{font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px}
+.ka-val{font-size:14px;font-weight:600;line-height:1}
+.kpi-bar{height:4px;background:#e8e8e8;border-radius:2px;overflow:hidden}
+.kpi-fill{height:100%;border-radius:2px}
+.flag-tag{display:inline-flex;align-items:center;gap:3px;font-size:9px;color:#A32D2D;background:#FEECEC;border-radius:4px;padding:2px 6px;margin-top:8px}
+
+/* ── Pivot table ── */
+.card{background:#fff;border:1px solid #e8e8e8;border-radius:10px;overflow:hidden;margin-bottom:1.25rem}
+.card-head{padding:11px 16px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.card-title{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.05em}
+.tbl-wrap{overflow-x:auto}
+.pivot-table{width:100%;border-collapse:collapse;min-width:520px}
+.pivot-table thead th{background:#fafafa;padding:7px 10px;text-align:right;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #eee;white-space:nowrap}
+.pivot-table thead th:first-child{text-align:left;min-width:160px}
+.pivot-table tbody td{padding:6px 10px;border-bottom:1px solid #f5f5f5;text-align:right;font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pivot-table tbody td:first-child{text-align:left}
+.pivot-table tbody tr:last-child td{border-bottom:none}
+.grp-row td{background:#f7f7f7;font-weight:600;font-size:11px;padding:7px 10px;border-top:1px solid #eee;cursor:pointer;user-select:none}
+.grp-row td:first-child{display:flex;align-items:center;gap:6px}
+.grp-row:hover td{background:#f0f0f0}
+.sub-row td{font-size:11px;color:#666}
+.sub-row td:first-child{padding-left:26px}
+.blank-lbl{font-style:italic;color:#bbb}
+.grand-row td{background:#f7f7f7;font-weight:700;border-top:1px solid #ddd}
+.hi{color:#A32D2D;font-weight:600}
+.chev{font-size:9px;color:#aaa;display:inline-block;transition:transform .15s}
+
+/* ── Document queue ── */
+.search-wrap{display:flex;align-items:center;gap:8px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:7px;padding:0 10px;height:32px;width:260px;flex:none}
+.search-wrap input{border:none;outline:none;background:transparent;color:#1a1a2e;font-size:12px;width:100%;font-family:inherit}
+.doc-wrap{overflow-x:auto;overflow-y:auto;max-height:340px}
+.doc-table{width:100%;border-collapse:collapse;min-width:580px}
+.doc-table thead th{position:sticky;top:0;background:#fafafa;padding:7px 10px;text-align:left;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #eee;white-space:nowrap;z-index:1}
+.doc-table thead th.r{text-align:right}
+.doc-table tbody td{padding:7px 10px;border-bottom:1px solid #f5f5f5;font-size:11px;vertical-align:middle}
+.doc-table tbody td.r{text-align:right;font-variant-numeric:tabular-nums}
+.doc-table tbody tr:last-child td{border-bottom:none}
+.doc-table tbody tr:hover{background:#f9fffe}
+.doc-ref{font-family:monospace;font-size:11px;color:#23ada7;font-weight:700}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap}
+.b-q1{background:#EEEDFE;color:#3C3489}
+.b-l1{background:#FFF3E0;color:#E65100}
+.b-l2{background:#FEECEC;color:#A32D2D}
+.b-cert{background:#E6F1FB;color:#185FA5}
+.b-flag{background:#FEECEC;color:#A32D2D}
+.b-crf{background:#E6F1FB;color:#185FA5}
+.b-other{background:#f0f0f0;color:#555}
+.age-norm{color:#aaa;font-size:11px}
+.age-warn{color:#BA7517;font-size:11px;font-weight:600}
+.age-crit{color:#A32D2D;font-size:11px;font-weight:700}
+.card-foot{padding:7px 16px;border-top:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.foot-legend{display:flex;gap:12px;font-size:10px;color:#aaa}
+.foot-count{font-size:11px;color:#aaa}
+
+/* ── Loading skeleton ── */
+.skel{height:12px;border-radius:4px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;display:inline-block;width:100%}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transition:opacity .3s;z-index:9999;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+#toast.terr{background:#A32D2D}
+
+/* ── Mobile ── */
+@media(max-width:768px){
+  .topbar{padding:0 14px}
+  .hdr-nav{display:none}
+  .topbar-right .topbar-btn{display:none}
+  .topbar-right .sync-pill{display:none}
+  .topbar-right #welcome-msg{display:none}
+  .mob-menu-btn{display:flex!important}
+  .page{padding:1rem}
+  .kpi-row{grid-template-columns:repeat(2,1fr);gap:8px}
+  .date-toolbar{flex-direction:column;align-items:flex-start}
+  .search-wrap{width:100%}
+}
+@media(max-width:480px){
+  .kpi-row{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <img class="topbar-logo" src="waislogo2.png" alt="WAIS">
+    <nav class="hdr-nav">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="tracker.html">Project Dashboard</a>
+      <a class="nav-link" href="map.html">Site Tracker</a>
+      <a class="nav-link active" href="approvals.html">Approvals</a>
+      <a class="nav-link" href="download.html">Download</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <div class="sync-pill"><div class="dot" id="sync-dot"></div><span id="sync-lbl">Loading…</span></div>
+    <span id="welcome-msg" style="font-size:12px;color:#888"></span>
+    <button onclick="loadData(true)" class="topbar-btn">&#8635; Refresh</button>
+    <button onclick="doLogout()" class="topbar-btn">Logout</button>
+    <button class="mob-menu-btn" onclick="openDrawer()" aria-label="Menu">
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><rect y="0" width="16" height="1.5" rx="1" fill="#555"/><rect y="5.25" width="16" height="1.5" rx="1" fill="#555"/><rect y="10.5" width="16" height="1.5" rx="1" fill="#555"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Mobile drawer -->
+<div class="mob-drawer-bg" id="mob-drawer-bg" onclick="closeDrawer()"></div>
+<div class="mob-drawer" id="mob-drawer">
+  <div class="mob-drawer-head">
+    <img class="mob-drawer-logo" src="waislogo2.png" alt="WAIS">
+    <button class="mob-drawer-close" onclick="closeDrawer()">&#215;</button>
+  </div>
+  <nav class="mob-drawer-nav">
+    <a href="index.html">Home</a>
+    <a href="tracker.html">Project Dashboard</a>
+    <a href="map.html">Site Tracker</a>
+    <a class="active" href="approvals.html">Approvals</a>
+    <a href="download.html">Download</a>
+  </nav>
+  <div class="mob-drawer-footer">
+    <div class="sync-pill"><div class="dot" id="mob-sync-dot"></div><span id="mob-sync-lbl">Loading…</span></div>
+    <span id="mob-welcome" style="font-size:12px;color:#888"></span>
+    <button class="mob-drawer-btn" onclick="closeDrawer();loadData(true)">&#8635; Refresh</button>
+    <button class="mob-drawer-btn danger" onclick="closeDrawer();doLogout()">Logout</button>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- Date toolbar -->
+  <div class="date-toolbar">
+    <div class="date-title">Approvals Tracker</div>
+    <div class="date-controls">
+      <input type="date" id="date-picker" class="date-input" onchange="onDateChange()"/>
+      <button class="date-btn active" id="btn-all" onclick="clearDate()">All</button>
+      <button class="date-btn" id="btn-today" onclick="setToday()">Today</button>
+    </div>
+  </div>
+
+  <!-- KPI cards -->
+  <div class="section-lbl" id="kpi-section-lbl">For approval · by tagging</div>
+  <div class="kpi-row" id="kpi-row">
+    <div class="kpi" style="border-top-color:#e8e8e8"><div class="skel" style="width:60%;margin-bottom:8px"></div><div class="skel" style="width:40%;height:28px"></div></div>
+    <div class="kpi" style="border-top-color:#e8e8e8"><div class="skel" style="width:60%;margin-bottom:8px"></div><div class="skel" style="width:40%;height:28px"></div></div>
+    <div class="kpi" style="border-top-color:#e8e8e8"><div class="skel" style="width:60%;margin-bottom:8px"></div><div class="skel" style="width:40%;height:28px"></div></div>
+  </div>
+
+  <!-- Pivot table -->
+  <div class="section-lbl">Full breakdown · pending details</div>
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">WA Pending by area</div>
+      <div style="font-size:10px;color:#aaa">Click group to collapse</div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="pivot-table">
+        <thead>
+          <tr>
+            <th style="text-align:left">WA Pending</th>
+            <th>MM</th><th>LUZ</th><th>VIS</th><th>IBS</th><th>TRIM</th><th>MM/LUZ/VM</th><th>Grand total</th>
+          </tr>
+        </thead>
+        <tbody id="pivot-tbody">
+          <tr><td colspan="8" style="padding:2rem;text-align:center;color:#aaa">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Document queue -->
+  <div class="section-lbl">Pending documents</div>
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">Document queue</div>
+      <div class="search-wrap">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5.5" stroke="#aaa" stroke-width="1.3"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.3" stroke-linecap="round"/></svg>
+        <input id="doc-search" placeholder="Search document ref…" oninput="filterDocs(this.value)"/>
+      </div>
+    </div>
+    <div class="doc-wrap">
+      <table class="doc-table">
+        <thead>
+          <tr>
+            <th>Document ref</th>
+            <th>Doc type</th>
+            <th>Area</th>
+            <th>Pending status</th>
+            <th class="r">Ageing</th>
+          </tr>
+        </thead>
+        <tbody id="doc-tbody">
+          <tr><td colspan="5" style="padding:2rem;text-align:center;color:#aaa">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-foot">
+      <div class="foot-legend">
+        <span><span style="color:#A32D2D;font-weight:700">&gt;60d</span> Critical</span>
+        <span><span style="color:#BA7517;font-weight:600">30–60d</span> Warning</span>
+        <span style="color:#aaa">&lt;30d Normal</span>
+      </div>
+      <div class="foot-count" id="doc-count"></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── Auth guard ───────────────────────────────────────────────────────────────
+(function(){
+  var sess=null;
+  try{sess=JSON.parse(sessionStorage.getItem('tsdb_session')||'null');}catch(e){}
+  if(!sess||!sess.username){document.body.innerHTML='';window.location.replace('index.html');return;}
+  var name='Welcome, '+(sess.display_name||sess.username)+'!';
+  document.getElementById('welcome-msg').textContent=name;
+  var mob=document.getElementById('mob-welcome');
+  if(mob) mob.textContent=name;
+})();
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+var GS_URL='https://script.google.com/macros/s/AKfycbzdNEzS3t6mnw7wWBxm3UFmHUtz39PWvmpS2BnSnRyvsOuhk6LS1H-V-58nsx25BwEenw/exec';
+var CACHE_KEY='tsdb_approvals_cache';
+var CACHE_TTL=10*60*1000; // 10 min
+
+// Area mapping
+var AREA_MAP={'metro':'MM','luzon':'LUZ','vismin':'VIS','ibs':'IBS','trim':'TRIM','mm/luz/vm':'MM/LUZ/VM'};
+var AREAS=['MM','LUZ','VIS','IBS','TRIM','MM/LUZ/VM'];
+var AREA_COLORS={MM:'#185FA5',LUZ:'#185FA5',VIS:'#185FA5',IBS:'#185FA5',TRIM:'#185FA5','MM/LUZ/VM':'#185FA5'};
+
+// Tagging config
+var TAGGING_COLORS={
+  'PREWORKS':'#378ADD','SW PSR':'#7F77DD','SRF / SPF':'#23ada7',
+  'COREMOD PSR':'#BA7517','CRF':'#185FA5','Assessment':'#888780'
+};
+var TAGGING_ORDER=['PREWORKS','SW PSR','SRF / SPF','COREMOD PSR','CRF','Assessment'];
+
+// Pending status badge classes
+var STATUS_BADGE_MAP={
+  'for q1 approval':'b-q1','for q2 approval':'b-q1',
+  'for l1 approval':'b-l1','for l2 approval':'b-l2',
+  'for certificate approval':'b-cert',
+  'for further checking':'b-flag','for correction of assignment to metro':'b-flag',
+  'crf review':'b-crf'
+};
+
+// Which statuses count as "for approval" (excluding blank)
+var FOR_APPROVAL_KEYS=['for l1 approval','for l2 approval','for q1 approval','for q2 approval',
+  'for certificate approval','for further checking','crf review','assessment',
+  'for correction of assignment to metro'];
+
+// ─── State ────────────────────────────────────────────────────────────────────
+var ALL=[];
+var _selectedDate='';
+var _docSearch='';
+var _collapsed={};
+var _allDocs=[];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function normStr(v){return String(v||'').trim().toLowerCase();}
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtDate(d){return d?d.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}):'—';}
+function isoDate(d){return d.toISOString().split('T')[0];}
+function today(){return isoDate(new Date());}
+
+function syncDot(state){
+  var cls='dot'+(state==='spin'?' spin':state==='err'?' err':'');
+  var txt=state==='spin'?'Loading…':state==='err'?'Error':'Synced';
+  document.getElementById('sync-dot').className=cls;
+  document.getElementById('sync-lbl').textContent=txt;
+  var md=document.getElementById('mob-sync-dot'),ml=document.getElementById('mob-sync-lbl');
+  if(md) md.className=cls;
+  if(ml) ml.textContent=txt;
+}
+var _toastTimer;
+function showToast(msg,isErr){
+  var el=document.getElementById('toast');
+  el.textContent=msg;el.className='show'+(isErr?' terr':'');
+  clearTimeout(_toastTimer);_toastTimer=setTimeout(function(){el.className='';},3500);
+}
+function gsGet(url,params){
+  var qs=new URLSearchParams(params).toString();
+  return fetch(qs?url+'?'+qs:url,{redirect:'follow'}).then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);return r.json();
+  });
+}
+function ageCls(d){return d>60?'age-crit':d>30?'age-warn':'age-norm';}
+function statusBadge(s){
+  var k=normStr(s);
+  var cls=STATUS_BADGE_MAP[k]||'b-other';
+  return '<span class="badge '+cls+'">'+escHtml(s||'(blank)')+'</span>';
+}
+
+// ─── Date controls ────────────────────────────────────────────────────────────
+function setToday(){
+  _selectedDate=today();
+  document.getElementById('date-picker').value=_selectedDate;
+  document.getElementById('btn-today').classList.add('active');
+  renderAll();
+}
+function clearDate(){
+  _selectedDate='';
+  document.getElementById('date-picker').value='';
+  document.getElementById('btn-today').classList.remove('active');
+  document.getElementById('btn-all').classList.add('active');
+  renderAll();
+}
+function onDateChange(){
+  _selectedDate=document.getElementById('date-picker').value;
+  document.getElementById('btn-today').classList.toggle('active',_selectedDate===today());
+  document.getElementById('btn-all').classList.toggle('active',!_selectedDate);
+  renderAll();
+}
+
+// ─── Flexible column getter ───────────────────────────────────────────────────
+function getCol(r, candidates){
+  for(var i=0;i<candidates.length;i++){
+    if(r[candidates[i]]!==undefined && r[candidates[i]]!==null && r[candidates[i]]!=='')
+      return String(r[candidates[i]]).trim();
+  }
+  // Also try case-insensitive match
+  var keys=Object.keys(r);
+  for(var c=0;c<candidates.length;c++){
+    var cl=candidates[c].toLowerCase();
+    for(var k=0;k<keys.length;k++){
+      if(keys[k].toLowerCase()===cl) return String(r[keys[k]]).trim();
+    }
+  }
+  return '';
+}
+
+function getTagging(r){ return getCol(r,['Tagging','tagging','TAGGING']); }
+function getPendingStatus(r){ return getCol(r,['Pending Status','PendingStatus','PENDING STATUS','EOD Status']); }
+function getInputDate(r){ return getCol(r,['Input Date','InputDate','INPUT DATE','Submission Date']); }
+function getDocRef(r){ return getCol(r,['DocRefNo/Email Subject','DocRefNo','Doc Ref No','DOCUMENT NO','Document No']); }
+function getDocType(r){ return getCol(r,['DOC Type','Doc Type','DocType','DOC TYPE']); }
+function getArea(r){ return getCol(r,['Area','AREA','area']); }
+function getProgram(r){ return getCol(r,['Program','PROGRAM']); }
+function getAgeing(r){ return getCol(r,['Ageing (DAYS)','Ageing','Ageing Days','AGEING']); }
+
+function classifyArea(r){
+  var a=getArea(r).toLowerCase();
+  return AREA_MAP[a]||'Other';
+}
+
+// ─── Filter rows for selected date ────────────────────────────────────────────
+function getDateRows(){
+  if(!_selectedDate) return ALL;
+  return ALL.filter(function(r){
+    var raw=r['Input Date']||r['Submission Date']||'';
+    if(!raw) return false;
+    var dt=new Date(raw);
+    if(isNaN(dt)) return false;
+    return isoDate(dt)===_selectedDate;
+  });
+}
+
+// ─── Render KPI cards ─────────────────────────────────────────────────────────
+function renderKPIs(rows){
+  // Get pending rows only (EOD Status = Pending / For Approval)
+  pending=rows.filter(function(r){
+    var s=normStr(getPendingStatus(r));
+    return s&&s!=='approved'&&s!=='returned'&&s!=='#n/a';
+  });
+
+  var byTag={};
+  TAGGING_ORDER.forEach(function(t){byTag[t]={total:0,areas:{MM:0,LUZ:0,VIS:0,IBS:0,TRIM:0,'MM/LUZ/VM':0},flags:0};});
+
+  pending.forEach(function(r){
+    var tag=getTagging(r);
+    if(!byTag[tag]) return;
+    var ps=normStr(getPendingStatus(r));
+    if(!ps||ps==='(blank)'||ps==='') return;
+    var area=classifyArea(r);
+    if(byTag[tag].areas[area]!==undefined) byTag[tag].areas[area]++;
+    byTag[tag].total++;
+    if(ps.includes('further')||ps.includes('correction')) byTag[tag].flags++;
+  });
+
+  var maxTotal=TAGGING_ORDER.reduce(function(m,t){return Math.max(m,byTag[t].total);},1);
+
+  var html=TAGGING_ORDER.map(function(tag){
+    var d=byTag[tag];
+    var color=TAGGING_COLORS[tag]||'#888';
+    var pct=Math.round(d.total/maxTotal*100);
+    var areaHtml=AREAS.filter(function(a){return a!=='MM/LUZ/VM';}).map(function(a){
+      var val=d.areas[a];
+      return '<div class="ka"><div class="ka-name">'+a+'</div>'+
+        '<div class="ka-val" style="color:'+(val?AREA_COLORS[a]:'#ccc')+'">'+(val||'—')+'</div></div>';
+    }).join('');
+    var flagHtml=d.flags?'<div class="flag-tag">&#9888; '+d.flags+' flagged</div>':'';
+    return '<div class="kpi" style="border-top-color:'+color+'">'+
+      '<div class="kpi-head"><div class="kpi-name">'+escHtml(tag)+'</div>'+
+      '<div class="kpi-total" style="color:'+color+'">'+d.total+'</div></div>'+
+      '<div class="kpi-areas">'+areaHtml+'</div>'+
+      '<div class="kpi-bar"><div class="kpi-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'+
+      flagHtml+'</div>';
+  }).join('');
+
+  document.getElementById('kpi-row').innerHTML=html;
+  var dt=_selectedDate?new Date(_selectedDate+' 00:00:00'):new Date();
+  document.getElementById('kpi-section-lbl').textContent='For approval · by tagging · '+fmtDate(dt);
+}
+
+// ─── Render pivot table ───────────────────────────────────────────────────────
+function renderPivot(rows){
+  var pending=rows.filter(function(r){
+    var s=normStr(getPendingStatus(r));
+    return s&&s!=='approved'&&s!=='returned'&&s!=='#n/a';
+  });
+
+  var pivot={};
+  pending.forEach(function(r){
+    var tag=getTagging(r)||'Other';
+    var ps=getPendingStatus(r)||'(blank)';
+    var area=classifyArea(r);
+    if(!pivot[tag]) pivot[tag]={};
+    if(!pivot[tag][ps]) pivot[tag][ps]={MM:0,LUZ:0,VIS:0,IBS:0,TRIM:0,'MM/LUZ/VM':0,total:0};
+    if(pivot[tag][ps][area]!==undefined) pivot[tag][ps][area]++;
+    pivot[tag][ps].total++;
+  });
+
+  // Grand totals per area
+  var grand={MM:0,LUZ:0,VIS:0,IBS:0,TRIM:0,'MM/LUZ/VM':0,total:0};
+  var html='';
+  var tags=TAGGING_ORDER.filter(function(t){return pivot[t];});
+
+  tags.forEach(function(tag){
+    var statuses=pivot[tag];
+    // Tag row totals
+    var tagRow={MM:0,LUZ:0,VIS:0,IBS:0,TRIM:0,'MM/LUZ/VM':0,total:0};
+    Object.keys(statuses).forEach(function(ps){
+      AREAS.forEach(function(a){tagRow[a]=(tagRow[a]||0)+(statuses[ps][a]||0);});
+      tagRow.total+=statuses[ps].total;
+    });
+    AREAS.forEach(function(a){grand[a]=(grand[a]||0)+(tagRow[a]||0);});
+    grand.total+=tagRow.total;
+
+    var isCollapsed=!!_collapsed[tag];
+    var safeTag=tag.replace(/[^a-z0-9]/gi,'_');
+    html+='<tr class="grp-row" onclick="toggleGroup(\''+safeTag+'\',\''+escHtml(tag)+'\')">'+
+      '<td><span class="chev" id="chev-'+safeTag+'"'+(isCollapsed?' style="transform:rotate(-90deg)"':'')+'>&#9660;</span> '+escHtml(tag)+'</td>'+
+      AREAS.map(function(a){return '<td>'+(tagRow[a]||''  )+'</td>';}).join('')+
+      '<td><strong>'+tagRow.total+'</strong></td></tr>';
+
+    // Status sub-rows
+    Object.keys(statuses).sort().forEach(function(ps){
+      var d=statuses[ps];
+      var isBlank=ps==='(blank)';
+      var isFlag=ps.toLowerCase().includes('further')||ps.toLowerCase().includes('correction');
+      html+='<tr class="sub-row" data-grp="'+safeTag+'"'+(isCollapsed?' style="display:none"':'')+'>'+
+        '<td class="'+(isFlag?'hi':'')+'">'+
+          (isBlank?'<span class="blank-lbl">(blank)</span>':escHtml(ps))+'</td>'+
+        AREAS.map(function(a){return '<td class="'+(isFlag&&d[a]?'hi':'')+'">'+(d[a]||'')+'</td>';}).join('')+
+        '<td class="'+(isFlag?'hi':'')+'">'+(isFlag?'<strong>'+d.total+'</strong>':d.total)+'</td></tr>';
+    });
+  });
+
+  // Grand total row
+  html+='<tr class="grand-row"><td>Grand total</td>'+
+    AREAS.map(function(a){return '<td>'+(grand[a]||'')+'</td>';}).join('')+
+    '<td>'+grand.total+'</td></tr>';
+
+  document.getElementById('pivot-tbody').innerHTML=html||
+    '<tr><td colspan="8" style="padding:2rem;text-align:center;color:#aaa">No pending documents for this date</td></tr>';
+}
+
+function toggleGroup(safeTag, tag){
+  _collapsed[tag]=!_collapsed[tag];
+  var isCol=_collapsed[tag];
+  document.querySelectorAll('[data-grp="'+safeTag+'"]').forEach(function(r){r.style.display=isCol?'none':'';});
+  var chev=document.getElementById('chev-'+safeTag);
+  if(chev) chev.style.transform=isCol?'rotate(-90deg)':'';
+}
+
+// ─── Render document queue ────────────────────────────────────────────────────
+function renderDocs(docs){
+  var q=_docSearch.toLowerCase();
+  var filtered=q?docs.filter(function(d){
+    return (d.ref||'').toLowerCase().includes(q)||
+           (d.type||'').toLowerCase().includes(q)||
+           (d.area||'').toLowerCase().includes(q)||
+           (d.status||'').toLowerCase().includes(q);
+  }):docs;
+
+  // Sort by ageing desc
+  filtered.sort(function(a,b){return b.age-a.age;});
+
+  var html=filtered.slice(0,300).map(function(d){
+    return '<tr>'+
+      '<td class="doc-ref">'+escHtml(d.ref)+'</td>'+
+      '<td>'+escHtml(d.type)+'</td>'+
+      '<td>'+escHtml(d.area)+'</td>'+
+      '<td>'+statusBadge(d.status)+'</td>'+
+      '<td class="r '+ageCls(d.age)+'">'+d.age+'d</td>'+
+    '</tr>';
+  }).join('');
+
+  document.getElementById('doc-tbody').innerHTML=html||
+    '<tr><td colspan="5" style="padding:2rem;text-align:center;color:#aaa">No documents found</td></tr>';
+  document.getElementById('doc-count').textContent=
+    filtered.length>300?'Showing 300 of '+filtered.length:filtered.length+' document'+(filtered.length!==1?'s':'');
+}
+
+function filterDocs(q){_docSearch=q;renderDocs(_allDocs);}
+
+// ─── Main render ─────────────────────────────────────────────────────────────
+function renderAll(){
+  var rows=getDateRows();
+
+  renderKPIs(rows);
+  renderPivot(rows);
+
+  // Build doc list — pending docs with ageing
+  var today_ms=new Date().getTime();
+  _allDocs=rows.filter(function(r){
+    var s=normStr(getPendingStatus(r));
+    return s&&s!=='approved'&&s!=='returned'&&s!=='#n/a'&&s!=='(blank)'&&s!=='';
+  }).map(function(r){
+    // Use pre-calculated Ageing (DAYS) from sheet, fall back to computing from Input Date
+    var age=parseInt(getAgeing(r),10);
+    if(isNaN(age)){
+      var d=getInputDate(r);
+      var inputDate=d?new Date(d):null;
+      age=(!inputDate||isNaN(inputDate))?0:Math.floor((today_ms-inputDate.getTime())/(1000*60*60*24));
+    }
+    return {
+      ref:  getDocRef(r)||'—',
+      type: getDocType(r)||'—',
+      area: classifyArea(r),
+      status: getPendingStatus(r)||'—',
+      age: Math.max(0,age)
+    };
+  });
+  renderDocs(_allDocs);
+}
+
+// ─── Load data ────────────────────────────────────────────────────────────────
+async function loadData(forceRefresh){
+  if(!forceRefresh){
+    try{
+      var cached=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
+      if(cached&&cached.ts&&(Date.now()-cached.ts)<CACHE_TTL&&cached.rows&&cached.rows.length){
+        ALL=cached.rows;
+        var age=Math.round((Date.now()-cached.ts)/60000);
+        syncDot('ok');
+        document.getElementById('sync-lbl').textContent='Cached'+(age>0?' · '+age+'m ago':'');
+        renderAll();
+        return;
+      }
+    }catch(e){}
+  }
+  syncDot('spin');
+  try{
+    var res=await gsGet(GS_URL,{action:'getApprovals'});
+    if(res.error) throw new Error(res.error);
+    ALL=res.rows||[];
+    // Debug: log first row keys to console
+    if(ALL.length>0) console.log('WAIS Approvals — first row keys:',Object.keys(ALL[0]));
+    else console.warn('WAIS Approvals — getApprovals returned 0 rows');
+    try{localStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),rows:ALL}));}catch(e){}
+    syncDot('ok');
+    renderAll();
+  }catch(e){
+    syncDot('err');
+    showToast('Load error: '+e.message,true);
+  }
+}
+
+// ─── Mobile drawer ────────────────────────────────────────────────────────────
+function openDrawer(){
+  document.getElementById('mob-drawer').classList.add('open');
+  document.getElementById('mob-drawer-bg').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeDrawer(){
+  document.getElementById('mob-drawer').classList.remove('open');
+  document.getElementById('mob-drawer-bg').classList.remove('open');
+  document.body.style.overflow='';
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDrawer();});
+
+// ─── Logout ───────────────────────────────────────────────────────────────────
+function doLogout(){
+  if(!confirm('Log out?')) return;
+  sessionStorage.removeItem('tsdb_session');
+  window.location.replace('index.html');
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+(function(){
+  // Default to All — user can filter by date
+  _selectedDate='';
+  document.getElementById('date-picker').value='';
+})();
+loadData();
+</script>
+</body>
+</html>
