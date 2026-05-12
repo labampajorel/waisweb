@@ -861,20 +861,34 @@ if ('serviceWorker' in navigator) {
 </script>
 <script>
 // ─── PWA standalone navigation fix ───────────────────────────────────────────
-// Keeps all same-origin navigation within the standalone PWA shell on iOS
 (function(){
   var isStandalone = window.navigator.standalone === true ||
     window.matchMedia('(display-mode: standalone)').matches;
   if (!isStandalone) return;
+
+  function handleNav(href){
+    if (!href) return false;
+    if (href.startsWith('http') || href.startsWith('//') ||
+        href.startsWith('mailto') || href.startsWith('tel') ||
+        href.startsWith('#')) return false;
+    return true;
+  }
+
+  // Intercept all link clicks
   document.addEventListener('click', function(e){
     var a = e.target.closest('a[href]');
     if (!a) return;
     var href = a.getAttribute('href');
-    if (!href || href.startsWith('http') || href.startsWith('mailto') || href.startsWith('tel')) return;
-    // Same-origin link — navigate within standalone window
+    if (!handleNav(href)) return;
     e.preventDefault();
-    window.location.href = href;
-  });
+    e.stopPropagation();
+    window.location.assign(href);
+  }, true); // capture phase — catches everything
+
+  // Also fix any programmatic navigation issues on page load
+  if (document.referrer && window.history.length > 1) {
+    window.history.replaceState(null, '', window.location.href);
+  }
 })();
 </script>
 </body>
