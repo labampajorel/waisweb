@@ -57,11 +57,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2
 .date-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px}
 .date-title{font-size:15px;font-weight:700;color:#1a1a2e}
 .date-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.date-input{height:34px;padding:0 12px;font-size:12px;border:1px solid #d0d0d0;border-radius:7px;background:#fff;color:#1a1a2e;cursor:pointer;outline:none}
-.date-input:focus{border-color:#23ada7}
-.date-btn{height:34px;padding:0 12px;font-size:12px;font-weight:500;border:1px solid #d0d0d0;border-radius:7px;background:#fff;color:#555;cursor:pointer;white-space:nowrap}
-.date-btn:hover{background:#f5f5f5}
-.date-btn.active{background:#23ada7;border-color:#23ada7;color:#fff}
+
 
 /* ── KPI cards ── */
 .kpi-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
@@ -228,14 +224,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2
 
 <div class="page">
 
-  <!-- Date toolbar -->
+  <!-- Page title -->
   <div class="date-toolbar">
     <div class="date-title">Approvals Tracker</div>
-    <div class="date-controls">
-      <input type="date" id="date-picker" class="date-input" onchange="onDateChange()"/>
-      <button class="date-btn active" id="btn-all" onclick="clearDate()">All</button>
-      <button class="date-btn" id="btn-today" onclick="setToday()">Today</button>
-    </div>
+    <div style="font-size:12px;color:#aaa">Total pending approvals</div>
   </div>
 
   <!-- KPI cards -->
@@ -330,30 +322,31 @@ var AREA_MAP={'metro':'MM','luzon':'LUZ','vismin':'VIS','ibs':'IBS','trim':'TRIM
 var AREAS=['MM','LUZ','VIS','IBS','TRIM','MM/LUZ/VM'];
 var AREA_COLORS={MM:'#185FA5',LUZ:'#185FA5',VIS:'#185FA5',IBS:'#185FA5',TRIM:'#185FA5','MM/LUZ/VM':'#185FA5'};
 
-// Tagging config
+// Tagging config — exact values from sheet
 var TAGGING_COLORS={
   'PREWORKS':'#378ADD','SW PSR':'#7F77DD','SRF / SPF':'#23ada7',
-  'COREMOD PSR':'#BA7517','CRF':'#185FA5','Assessment':'#888780'
+  'COREMOD PSR':'#BA7517','CRF':'#185FA5','Assessment':'#888780',
+  'Confirmation/Validation':'#888780'
 };
-var TAGGING_ORDER=['PREWORKS','SW PSR','SRF / SPF','COREMOD PSR','CRF','Assessment'];
+var TAGGING_ORDER=['PREWORKS','SW PSR','SRF / SPF','COREMOD PSR','CRF','Assessment','Confirmation/Validation'];
 
 // Pending status badge classes
 var STATUS_BADGE_MAP={
   'for q1 approval':'b-q1','for q2 approval':'b-q1',
   'for l1 approval':'b-l1','for l2 approval':'b-l2',
+  'for sf approval':'b-l2',
   'for certificate approval':'b-cert',
-  'for further checking':'b-flag','for correction of assignment to metro':'b-flag',
+  'for bss approval':'b-cert',
+  'for further checking':'b-flag',
+  'please reject no approved tssr/airdoc yet':'b-flag',
   'crf review':'b-crf'
 };
 
-// Which statuses count as "for approval" (excluding blank)
-var FOR_APPROVAL_KEYS=['for l1 approval','for l2 approval','for q1 approval','for q2 approval',
-  'for certificate approval','for further checking','crf review','assessment',
-  'for correction of assignment to metro'];
+// KPI cards count ALL pending statuses shown in pivot (same as pivot table)
+var EXCLUDE_STATUSES=['Approved','Returned','Done','#N/A',''];
 
 // ─── State ────────────────────────────────────────────────────────────────────
 var ALL=[];
-var _selectedDate='';
 var _docSearch='';
 var _collapsed={};
 var _allDocs=[];
@@ -394,25 +387,7 @@ function statusBadge(s){
 }
 
 // ─── Date controls ────────────────────────────────────────────────────────────
-function setToday(){
-  _selectedDate=today();
-  document.getElementById('date-picker').value=_selectedDate;
-  document.getElementById('btn-today').classList.add('active');
-  renderAll();
-}
-function clearDate(){
-  _selectedDate='';
-  document.getElementById('date-picker').value='';
-  document.getElementById('btn-today').classList.remove('active');
-  document.getElementById('btn-all').classList.add('active');
-  renderAll();
-}
-function onDateChange(){
-  _selectedDate=document.getElementById('date-picker').value;
-  document.getElementById('btn-today').classList.toggle('active',_selectedDate===today());
-  document.getElementById('btn-all').classList.toggle('active',!_selectedDate);
-  renderAll();
-}
+
 
 // ─── Flexible column getter ───────────────────────────────────────────────────
 function getCol(r, candidates){
@@ -431,7 +406,15 @@ function getCol(r, candidates){
   return '';
 }
 
-function getTagging(r){ return getCol(r,['Tagging','tagging','TAGGING']); }
+function getTagging(r){
+  var v = getCol(r,['Tagging','tagging','TAGGING']);
+  // Case-insensitive match against known tagging values
+  var known = TAGGING_ORDER;
+  for(var i=0;i<known.length;i++){
+    if(v.toLowerCase()===known[i].toLowerCase()) return known[i];
+  }
+  return v;
+}
 function getPendingStatus(r){ return getCol(r,['Pending Status','PendingStatus','PENDING STATUS','EOD Status']); }
 function getInputDate(r){ return getCol(r,['Input Date','InputDate','INPUT DATE','Submission Date']); }
 function getDocRef(r){ return getCol(r,['DocRefNo/Email Subject','DocRefNo','Doc Ref No','DOCUMENT NO','Document No']); }
@@ -439,30 +422,34 @@ function getDocType(r){ return getCol(r,['DOC Type','Doc Type','DocType','DOC TY
 function getArea(r){ return getCol(r,['Area','AREA','area']); }
 function getProgram(r){ return getCol(r,['Program','PROGRAM']); }
 function getAgeing(r){ return getCol(r,['Ageing (DAYS)','Ageing','Ageing Days','AGEING']); }
+function getMorningTag(r){ return getCol(r,['MorningTag','Morning Tag','morningtag','MORNINGTAG']); }
+
+// Extended area map — exact values from sheet
+var AREA_MAP_EXT = {
+  'metro':'MM','metro manila':'MM','mm':'MM',
+  'luzon':'LUZ','luz':'LUZ',
+  'vismin':'VIS','vis':'VIS',
+  'ibs':'IBS',
+  'trim':'TRIM',
+  'mm/luz/vm':'MM/LUZ/VM'
+};
 
 function classifyArea(r){
-  var a=getArea(r).toLowerCase();
-  return AREA_MAP[a]||'Other';
+  var a = getArea(r).trim().toLowerCase();
+  return AREA_MAP_EXT[a] || AREA_MAP[a] || 'Other';
 }
 
-// ─── Filter rows for selected date ────────────────────────────────────────────
+// ─── No date filter — always return all rows ─────────────────────────────────
 function getDateRows(){
-  if(!_selectedDate) return ALL;
-  return ALL.filter(function(r){
-    var raw=r['Input Date']||r['Submission Date']||'';
-    if(!raw) return false;
-    var dt=new Date(raw);
-    if(isNaN(dt)) return false;
-    return isoDate(dt)===_selectedDate;
-  });
+  return ALL;
 }
 
 // ─── Render KPI cards ─────────────────────────────────────────────────────────
 function renderKPIs(rows){
-  // Get pending rows only (EOD Status = Pending / For Approval)
-  pending=rows.filter(function(r){
-    var s=normStr(getPendingStatus(r));
-    return s&&s!=='approved'&&s!=='returned'&&s!=='#n/a';
+  // Count same rows as pivot table — exclude only Approved/Returned/Done
+  var pending=rows.filter(function(r){
+    var ps=getPendingStatus(r).trim();
+    return ps && EXCLUDE_STATUSES.indexOf(ps)===-1;
   });
 
   var byTag={};
@@ -471,12 +458,12 @@ function renderKPIs(rows){
   pending.forEach(function(r){
     var tag=getTagging(r);
     if(!byTag[tag]) return;
-    var ps=normStr(getPendingStatus(r));
-    if(!ps||ps==='(blank)'||ps==='') return;
+    var ps=getPendingStatus(r).trim();
     var area=classifyArea(r);
     if(byTag[tag].areas[area]!==undefined) byTag[tag].areas[area]++;
     byTag[tag].total++;
-    if(ps.includes('further')||ps.includes('correction')) byTag[tag].flags++;
+    var psL=ps.toLowerCase();
+    if(psL.includes('reject')||psL.includes('further')||psL.includes('correction')) byTag[tag].flags++;
   });
 
   var maxTotal=TAGGING_ORDER.reduce(function(m,t){return Math.max(m,byTag[t].total);},1);
@@ -500,15 +487,14 @@ function renderKPIs(rows){
   }).join('');
 
   document.getElementById('kpi-row').innerHTML=html;
-  var dt=_selectedDate?new Date(_selectedDate+' 00:00:00'):new Date();
-  document.getElementById('kpi-section-lbl').textContent='For approval · by tagging · '+fmtDate(dt);
+  document.getElementById('kpi-section-lbl').textContent='For approval · by tagging · all pending';
 }
 
 // ─── Render pivot table ───────────────────────────────────────────────────────
 function renderPivot(rows){
   var pending=rows.filter(function(r){
-    var s=normStr(getPendingStatus(r));
-    return s&&s!=='approved'&&s!=='returned'&&s!=='#n/a';
+    var s=getPendingStatus(r).trim();
+    return s && s!=='Approved' && s!=='Returned' && s!=='Done' && s!=='#N/A' && s!=='';
   });
 
   var pivot={};
@@ -616,8 +602,8 @@ function renderAll(){
   // Build doc list — pending docs with ageing
   var today_ms=new Date().getTime();
   _allDocs=rows.filter(function(r){
-    var s=normStr(getPendingStatus(r));
-    return s&&s!=='approved'&&s!=='returned'&&s!=='#n/a'&&s!=='(blank)'&&s!=='';
+    var s=getPendingStatus(r).trim();
+    return s && EXCLUDE_STATUSES.indexOf(s)===-1;
   }).map(function(r){
     // Use pre-calculated Ageing (DAYS) from sheet, fall back to computing from Input Date
     var age=parseInt(getAgeing(r),10);
@@ -657,9 +643,19 @@ async function loadData(forceRefresh){
     var res=await gsGet(GS_URL,{action:'getApprovals'});
     if(res.error) throw new Error(res.error);
     ALL=res.rows||[];
-    // Debug: log first row keys to console
-    if(ALL.length>0) console.log('WAIS Approvals — first row keys:',Object.keys(ALL[0]));
-    else console.warn('WAIS Approvals — getApprovals returned 0 rows');
+    // Debug: log actual column values to help diagnose mapping issues
+    if(ALL.length>0){
+      var sample=ALL[0];
+      console.log('WAIS Approvals — keys:', Object.keys(sample));
+      console.log('WAIS Approvals — Tagging:', getTagging(sample));
+      console.log('WAIS Approvals — Pending Status:', getPendingStatus(sample));
+      console.log('WAIS Approvals — Area raw:', getArea(sample), '→ classified:', classifyArea(sample));
+      // Show unique tagging and area values across all rows
+      var tags=[...new Set(ALL.map(function(r){return getTagging(r);}))];
+      var areas=[...new Set(ALL.map(function(r){return getArea(r);}))];
+      console.log('WAIS Approvals — unique Tagging values:', tags);
+      console.log('WAIS Approvals — unique Area values:', areas);
+    } else console.warn('WAIS Approvals — getApprovals returned 0 rows');
     try{localStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),rows:ALL}));}catch(e){}
     syncDot('ok');
     renderAll();
@@ -690,11 +686,6 @@ function doLogout(){
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
-(function(){
-  // Default to All — user can filter by date
-  _selectedDate='';
-  document.getElementById('date-picker').value='';
-})();
 loadData();
 </script>
 <script>
